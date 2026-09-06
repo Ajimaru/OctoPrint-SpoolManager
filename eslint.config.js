@@ -105,8 +105,8 @@ module.exports = [
     {
         ignores: [
             // vendored libraries - not our code
-            "octoprint_SpoolManager/static/js/quill.min.js",
-            "octoprint_SpoolManager/static/js/tinycolor.min.js",
+            "octoprint_SpoolManagerExtended/static/js/quill.min.js",
+            "octoprint_SpoolManagerExtended/static/js/tinycolor.min.js",
             "3rdPartySoftware/**",
             "node_modules/**",
             "build/**",
@@ -114,7 +114,7 @@ module.exports = [
         ],
     },
     {
-        files: ["octoprint_SpoolManager/static/js/**/*.js"],
+        files: ["octoprint_SpoolManagerExtended/static/js/**/*.js"],
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: "script",

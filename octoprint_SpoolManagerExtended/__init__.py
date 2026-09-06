@@ -103,11 +103,6 @@ class SpoolmanagerPlugin(
         # init database
         self._databaseManager.initDatabase(databaseSettings, self._sendMessageToClient)
 
-        # OTHER STUFF
-        # self._filamentOdometer = None
-        # self._filamentOdometer = FilamentOdometer()
-        # TODO no idea what this thing is doing in detail self._filamentOdometer.set_g90_extruder(self._settings.getBoolean(["feature", "g90InfluencesExtruder"]))
-
         self.myFilamentOdometer = NewFilamentOdometer(self._extrusionValuesChanged)
         self.myFilamentOdometer.set_g90_extruder(
             self._settings.get_boolean(["feature", "g90InfluencesExtruder"])
@@ -1488,64 +1483,6 @@ class SpoolmanagerPlugin(
         )
 
         return databaseSettings
-
-    # common states: STATE_CONNECTING("Connecting"), STATE_OPERATIONAL("Operational"),
-    # STATE_STARTING("Startinf..."), STATE_PRINTING("Printing or Sendind"), STATE_CANCELLING("Cancelling"),
-    # STATE_PAUSING("Pausing"), STATE_PAUSED("Paused"), STATE_RESUMING("Resuming"), STATE_FINISHING("Finishing"), STATE_CLOSED("Offline")
-    # Normal flow:
-    # - OPERATIONAL
-    # - STARTING
-    # - PRINTING
-    # - FINISHING
-    # - OPERATIONAL
-
-    # Cancel
-    # - ...
-    # - PRINTING
-    # -CANCELLING
-    # - OPERATIONAL
-
-    # Pause -> Resume
-    # - STARTING
-    # - PRINTING
-    # - PAUSING
-    # - PAUSED
-    # - RESUMING
-    # - PRINTING
-    # - FINISHING
-    # - OPERATIONAL
-
-    # Pause -> Restart
-    # - PRINTING
-    # - PAUSING
-    # - PAUSED
-    # - STARTING
-    # - PRINTING
-    # def _on_printer_state_changed(self, payload):
-    #   printerState = payload['state_id']
-    #   print("######################  " +str(printerState))
-    #   if payload['state_id'] == "PRINTING":
-    #       if self._lastPrintState == "PAUSED":
-    #           # resuming print
-    #           self.filamentOdometer.reset_extruded_length()
-    #       else:
-    #           # starting new print
-    #           self.filamentOdometer.reset()
-    #       self.odometerEnabled = self._settings.getBoolean(["enableOdometer"])
-    #       self.pauseEnabled = self._settings.getBoolean(["autoPause"])
-    #       self._logger.debug("Printer State: %s" % payload["state_string"])
-    #       self._logger.debug("Odometer: %s" % ("On" if self.odometerEnabled else "Off"))
-    #       self._logger.debug("AutoPause: %s" % ("On" if self.pauseEnabled and self.odometerEnabled else "Off"))
-    #   elif self._lastPrintState == "PRINTING":
-    #       # print state changed from printing => update filament usage
-    #       self._logger.debug("Printer State: %s" % payload["state_string"])
-    #       if self.odometerEnabled:
-    #           self.odometerEnabled = False  # disabled because we don't want to track manual extrusion
-    #
-    #           self.currentExtrusion = self.filamentOdometer.get_extrusion()
-    #
-    #   # update last print state
-    #   self._lastPrintState = payload['state_id']
 
     def _on_printJobStarted(self):
         # starting new print

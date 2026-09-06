@@ -11,9 +11,9 @@
 exclude: |
   (?x)^(
       3rdPartySoftware/.*|
-      octoprint_SpoolManager/static/js/quill\.min\.js|
-      octoprint_SpoolManager/static/js/tinycolor\.min\.js|
-      octoprint_SpoolManager/static/css/quill\.snow\.css|
+      octoprint_SpoolManagerExtended/static/js/quill\.min\.js|
+      octoprint_SpoolManagerExtended/static/js/tinycolor\.min\.js|
+      octoprint_SpoolManagerExtended/static/css/quill\.snow\.css|
       translations/.*|
       testdata/.*
   )$
@@ -62,14 +62,14 @@ repos:
         name: eslint
         entry: npx --no-install eslint
         language: system
-        files: ^octoprint_SpoolManager/static/js/.*\.js$
+        files: ^octoprint_SpoolManagerExtended/static/js/.*\.js$
         pass_filenames: true
 
       - id: stylelint
         name: stylelint
         entry: npx --no-install stylelint
         language: system
-        files: ^octoprint_SpoolManager/static/.*\.(css|less)$
+        files: ^octoprint_SpoolManagerExtended/static/.*\.(css|less)$
         pass_filenames: true
 
       # --check instead of --write: the hook reports, it never rewrites files
@@ -78,6 +78,6 @@ repos:
         name: prettier
         entry: npx --no-install prettier --check
         language: system
-        files: ^octoprint_SpoolManager/static/.*\.(js|css|less)$
+        files: ^octoprint_SpoolManagerExtended/static/.*\.(js|css|less)$
         exclude: \.min\.js$|quill\.snow\.css$
         pass_filenames: true

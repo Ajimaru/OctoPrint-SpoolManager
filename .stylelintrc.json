@@ -11,7 +11,7 @@
   ],
   "extends": "stylelint-config-standard",
   "ignoreFiles": [
-    "octoprint_SpoolManager/static/css/quill.snow.css",
+    "octoprint_SpoolManagerExtended/static/css/quill.snow.css",
     "3rdPartySoftware/**",
     "node_modules/**",
     "build/**",

@@ -48,15 +48,15 @@ The OctoPrint-Plugin manages all spool informations and stores it in a database.
 
 ## Screenshots
 <!---
-![plugin-settings](screenshots/plugin-settings.png "Plugin-Settings")
-![plugin-tab](screenshots/plugin-tab.png "Plugin-Tab")
+![plugin-settings](../../archive/legacy/screenshots/plugin-settings.png "Plugin-Settings")
+![plugin-tab](../../archive/legacy/screenshots/plugin-tab.png "Plugin-Tab")
 -->
-![listSpools-tab](screenshots/listSpools-tab.png "ListSpools-Tab")
-![selectSpools-sidebar](screenshots/selectSpool-sidebar.png "SelectSpool-Sidebar")
-![selectSpools-dialog](screenshots/selectSpool-dialog.png "SelectSpool-Dialog")
-![editSpool-dialog](screenshots/editSpool-dialog.png "EditSpool-Dialog")
+![listSpools-tab](../../archive/legacy/screenshots/listSpools-tab.png "ListSpools-Tab")
+![selectSpools-sidebar](../../archive/legacy/screenshots/selectSpool-sidebar.png "SelectSpool-Sidebar")
+![selectSpools-dialog](../../archive/legacy/screenshots/selectSpool-dialog.png "SelectSpool-Dialog")
+![editSpool-dialog](../../archive/legacy/screenshots/editSpool-dialog.png "EditSpool-Dialog")
 
-![scanSpool-dialog](screenshots/scanSpool-dialog.png "ScanSpool-Dialog")
+![scanSpool-dialog](../../archive/legacy/screenshots/scanSpool-dialog.png "ScanSpool-Dialog")
 
 ## Setup
 Install via the bundled [Plugin Manager](http://docs.octoprint.org/en/master/bundledplugins/pluginmanager.html)
@@ -74,7 +74,7 @@ What does this mean: Each channel has its own release-version and each release h
   A development version like '''1.8.0.dev5``` could include a new (experimental) feature/bugfixs, but it is not fully tested by the community
 
 Changing between each release is done via the "Software Update section" in the settings.
-![release-channels](screenshots/release-channels.png "Release channels")
+![release-channels](../../archive/legacy/screenshots/release-channels.png "Release channels")
 
 Hint: "Easy-switching" is possible with OctoPrint-Version 1.8.0 (see https://github.com/OctoPrint/OctoPrint/issues/4238).
 At the meantime you need to uninstall and install the version you like from the selected channel...or stay in one channel ;-)
