@@ -31,13 +31,13 @@ Note that this does not necessarily mean that this plugin will not work with old
 
 ## Screenshots
 <!---
-![plugin-settings](screenshots/plugin-settings.png "Plugin-Settings")
-![plugin-tab](screenshots/plugin-tab.png "Plugin-Tab")
+![plugin-settings](../../archive/legacy/screenshots/plugin-settings.png "Plugin-Settings")
+![plugin-tab](../../archive/legacy/screenshots/plugin-tab.png "Plugin-Tab")
 -->
-![listSpools-tab](screenshots/listSpools-tab.png "ListSpools-Tab")
-![selectSpools-sidebar](screenshots/selectSpool-sidebar.png "SelectSpool-Sidebar")
-![selectSpools-dialog](screenshots/selectSpool-dialog.png "SelectSpool-Dialog")
-![editSpool-dialog](screenshots/editSpool-dialog.png "EditSpool-Dialog")
+![listSpools-tab](../../archive/legacy/screenshots/listSpools-tab.png "ListSpools-Tab")
+![selectSpools-sidebar](../../archive/legacy/screenshots/selectSpool-sidebar.png "SelectSpool-Sidebar")
+![selectSpools-dialog](../../archive/legacy/screenshots/selectSpool-dialog.png "SelectSpool-Dialog")
+![editSpool-dialog](../../archive/legacy/screenshots/editSpool-dialog.png "EditSpool-Dialog")
 
 ## Setup
 Install via the bundled [Plugin Manager](http://docs.octoprint.org/en/master/bundledplugins/pluginmanager.html)
@@ -53,7 +53,7 @@ What does this mean: Each channel has its own release version and each release h
   The alpha versions include new functionality/bugfixes and should be considered untested. You can help bring them to a stable release by leaving feedback.
 
 Changing between each release is done via the "Software Update section" in the settings.
-![release-channels](screenshots/release-channels.png "Release channels")
+![release-channels](../../archive/legacy/screenshots/release-channels.png "Release channels")
 
 Hint: "Easy-switching" is possible since OctoPrint version 1.8.0 (see https://github.com/OctoPrint/OctoPrint/issues/4238).
 
