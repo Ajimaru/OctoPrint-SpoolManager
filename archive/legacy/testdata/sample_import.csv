@@ -2,4 +2,3 @@ DisplayName, Vendor, Material, Color [#code], Diameter [mm], Density [g/cm³], T
 
 
 Name, Cost, Weight, Used, TempOffset -> Vendor, Material, Density, Diameter
-

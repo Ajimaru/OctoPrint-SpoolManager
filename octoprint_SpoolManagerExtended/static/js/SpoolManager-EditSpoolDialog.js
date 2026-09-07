@@ -1330,10 +1330,7 @@ function SpoolManagerExtendedEditSpoolDialog() {
         // it: if a different tag ends up on the reader in the meantime, "Overwrite anyway"
         // must not silently apply to a tag the user never saw the question for.
         self.octoScaleTagWriter.tagUid.subscribe(function (newUid) {
-            if (
-                overwriteConfirmDialog != null &&
-                overwriteConfirmDialogUid !== newUid
-            ) {
+            if (overwriteConfirmDialog != null && overwriteConfirmDialogUid !== newUid) {
                 closeOverwriteConfirmDialog();
             }
         });
@@ -1372,10 +1369,7 @@ function SpoolManagerExtendedEditSpoolDialog() {
                 });
                 return;
             }
-            if (
-                writer.isPossiblyForeignTag() &&
-                writer.foreignTagConfirmed() != true
-            ) {
+            if (writer.isPossiblyForeignTag() && writer.foreignTagConfirmed() != true) {
                 overwriteConfirmDialogUid = writer.tagUid();
                 if (writer.vendorTagWriteEnabled() != true) {
                     // The setting is a hard "never" - no "Overwrite anyway" escape hatch
@@ -1424,7 +1418,11 @@ function SpoolManagerExtendedEditSpoolDialog() {
         // _applyAllReadTagValues), so requiring the same extra click for an existing spool
         // just added a redundant step in front of a dialog the user always wants here.
         self.octoScaleTagWriter.readTagResult.subscribe(function (result) {
-            if (result != null && result.parsed === true && self.isExistingSpool() === true) {
+            if (
+                result != null &&
+                result.parsed === true &&
+                self.isExistingSpool() === true
+            ) {
                 self.showReadTagImportDialog();
             }
         });
@@ -1439,7 +1437,9 @@ function SpoolManagerExtendedEditSpoolDialog() {
 
         // Adopted from mdziekon/OctoPrint-SpoolManager PR #11 (GH-10): note editor is created
         // via the static factory instead of instantiating Quill inline
-        self.noteEditor = SpoolManagerExtendedComponentFactory.createNoteEditor("spmx-spool-note-editor");
+        self.noteEditor = SpoolManagerExtendedComponentFactory.createNoteEditor(
+            "spmx-spool-note-editor"
+        );
 
         // initial coloring
         self._createSpoolItemForEditing();

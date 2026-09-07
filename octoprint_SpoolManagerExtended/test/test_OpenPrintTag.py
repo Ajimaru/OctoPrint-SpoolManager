@@ -220,9 +220,7 @@ class TestColorEncoding(unittest.TestCase):
     def test_unparsable_or_missing_color_is_none(self):
         self.assertIsNone(OpenPrintTag._primaryColorBytes(SpoolStub(color=None)))
         self.assertIsNone(OpenPrintTag._primaryColorBytes(SpoolStub(color="")))
-        self.assertIsNone(
-            OpenPrintTag._primaryColorBytes(SpoolStub(color="notacolor"))
-        )
+        self.assertIsNone(OpenPrintTag._primaryColorBytes(SpoolStub(color="notacolor")))
 
 
 class TestMaterialTypeIndex(unittest.TestCase):
@@ -410,7 +408,9 @@ class TestUnmappedFields(unittest.TestCase):
 
     def test_truncated_field_names(self):
         longMaterial = "x" * (OpenPrintTag.MATERIAL_NAME_MAX_BYTES + 5)
-        truncated = OpenPrintTag.getTruncatedFieldNames(SpoolStub(material=longMaterial))
+        truncated = OpenPrintTag.getTruncatedFieldNames(
+            SpoolStub(material=longMaterial)
+        )
         self.assertIn("material_name", truncated)
         self.assertNotIn("brand_name", truncated)
 
@@ -432,7 +432,9 @@ class TestEncoding(unittest.TestCase):
             + OpenPrintTag.OPT_AUX_SIZE
         )
         self.assertEqual(len(encoded), expectedTotal)
-        self.assertEqual(len(encoded[-OpenPrintTag.OPT_AUX_SIZE :]), OpenPrintTag.OPT_AUX_SIZE)
+        self.assertEqual(
+            len(encoded[-OpenPrintTag.OPT_AUX_SIZE :]), OpenPrintTag.OPT_AUX_SIZE
+        )
 
     def test_section_size_limit_is_enforced(self):
         oversizedSection = {
@@ -448,9 +450,7 @@ class TestEncoding(unittest.TestCase):
     def test_build_tag_payload_end_to_end(self):
         payload = OpenPrintTag.buildTagPayload(SpoolStub())
         self.assertIsInstance(payload, bytes)
-        self.assertIn(
-            OpenPrintTag.OPENPRINTTAG_MIME_TYPE.encode("ascii"), payload
-        )
+        self.assertIn(OpenPrintTag.OPENPRINTTAG_MIME_TYPE.encode("ascii"), payload)
 
     # Golden-bytes reference: pins the full encoding of one fully-populated stub spool so a
     # real tag written by OctoScale's firmware can be diffed against it byte-for-byte. If this
@@ -511,7 +511,9 @@ class TestWritePayloadDryingUnits(unittest.TestCase):
 
     def test_drying_temperature_is_sent_unchanged(self):
         # Celsius on both sides, no conversion involved.
-        self.assertEqual(45, self.buildPayload(dryingTemperature=45)["dryingTemperature"])
+        self.assertEqual(
+            45, self.buildPayload(dryingTemperature=45)["dryingTemperature"]
+        )
 
     def test_transmission_distance_is_sent_unchanged(self):
         self.assertEqual(6.6, self.buildPayload(td=6.6)["td"])
@@ -535,9 +537,7 @@ class TestTagFormats(unittest.TestCase):
     def test_openprinttag_nfcv_is_registered_and_supported(self):
         tagFormat = TagFormats.getTagFormat(TagFormats.TAG_FORMAT_NFCV_OPENPRINTTAG)
         self.assertIsNotNone(tagFormat)
-        self.assertTrue(
-            TagFormats.isSupported(TagFormats.TAG_FORMAT_NFCV_OPENPRINTTAG)
-        )
+        self.assertTrue(TagFormats.isSupported(TagFormats.TAG_FORMAT_NFCV_OPENPRINTTAG))
         self.assertIsNotNone(tagFormat["buildPayload"])
 
     def test_unknown_format_is_not_supported(self):
@@ -661,9 +661,7 @@ class TestFieldsForJson(unittest.TestCase):
     def test_renders_byte_values_as_hex(self):
         # primary_color is a byte array per the spec. Decoding it as text raises on the
         # first non-ASCII byte - "#fd7412" fails on byte 0 - so it is shown as hex instead.
-        plain = OpenPrintTag.fieldsForJson(
-            {"main": {"primary_color": b"\xfd\x74\x12"}}
-        )
+        plain = OpenPrintTag.fieldsForJson({"main": {"primary_color": b"\xfd\x74\x12"}})
         self.assertEqual("fd7412", plain["main"]["primary_color"])
         json.dumps(plain)
 

@@ -21,7 +21,9 @@ from playhouse.shortcuts import model_to_dict
 
 from octoprint_SpoolManagerExtended.api import Transformer
 from octoprint_SpoolManagerExtended.common import StringUtils
-from octoprint_SpoolManagerExtended.models.PluginMetaDataModel import PluginMetaDataModel
+from octoprint_SpoolManagerExtended.models.PluginMetaDataModel import (
+    PluginMetaDataModel,
+)
 from octoprint_SpoolManagerExtended.models.SpoolModel import SpoolModel
 from octoprint_SpoolManagerExtended.WrappedLoggingHandler import WrappedLoggingHandler
 
@@ -261,7 +263,9 @@ class DatabaseManager(object):
         ):
             if columnName in columnNames:
                 self._logger.info(
-                    "  column '" + columnName + "' already present, skipping ALTER TABLE"
+                    "  column '"
+                    + columnName
+                    + "' already present, skipping ALTER TABLE"
                 )
             else:
                 self._database.execute_sql(
@@ -297,7 +301,9 @@ class DatabaseManager(object):
         ):
             if columnName in columnNames:
                 self._logger.info(
-                    "  column '" + columnName + "' already present, skipping ALTER TABLE"
+                    "  column '"
+                    + columnName
+                    + "' already present, skipping ALTER TABLE"
                 )
             else:
                 self._database.execute_sql(
@@ -2088,7 +2094,10 @@ class DatabaseManager(object):
                 SpoolModel.select()
                 .where(
                     (SpoolModel.code == str(code).strip())
-                    & ((SpoolModel.isTemplate == False) | (SpoolModel.isTemplate == None))
+                    & (
+                        (SpoolModel.isTemplate == False)
+                        | (SpoolModel.isTemplate == None)
+                    )
                 )
                 .order_by(SpoolModel.databaseId.desc())
                 .first()
@@ -2111,7 +2120,10 @@ class DatabaseManager(object):
                 SpoolModel.select()
                 .where(
                     (SpoolModel.rfidTagKey == str(rfidTagKey).strip())
-                    & ((SpoolModel.isTemplate == False) | (SpoolModel.isTemplate == None))
+                    & (
+                        (SpoolModel.isTemplate == False)
+                        | (SpoolModel.isTemplate == None)
+                    )
                 )
                 .order_by(SpoolModel.databaseId.desc())
                 .first()

@@ -182,7 +182,9 @@ class OctoScaleTagReader(object):
             return TagReadResult(
                 retryable=(lastResult.retryable if lastResult is not None else False),
                 error=(
-                    lastResult.error if lastResult is not None else "authentication failed"
+                    lastResult.error
+                    if lastResult is not None
+                    else "authentication failed"
                 ),
                 uid=(lastResult.uid if lastResult is not None else None),
                 tagType="mifareClassic1k",
@@ -228,7 +230,7 @@ class OctoScaleTagReader(object):
             return TagReadResult(
                 retryable=statusData.get("retryable") is True,
                 error=statusData.get("error") or "Could not read the tag",
-                **common
+                **common,
             )
 
         hexData = statusData.get("bytes") or ""
@@ -251,7 +253,7 @@ class OctoScaleTagReader(object):
                     + " bytes but sent "
                     + str(len(data))
                 ),
-                **common
+                **common,
             )
 
         startPage = statusData.get("startPage")
@@ -267,7 +269,7 @@ class OctoScaleTagReader(object):
             return TagReadResult(
                 retryable=False,
                 error="OctoScale returned a dump that does not start at page 0",
-                **common
+                **common,
             )
 
         return TagReadResult(data=data, retryable=False, **common)

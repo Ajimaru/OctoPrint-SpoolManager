@@ -312,7 +312,6 @@ class TestLegacyMigration(unittest.TestCase):
         self.assertTrue(result["success"], result["errorMessage"])
         self.assertTrue(result["schemeUpgradeNeeded"])
 
-
     ############################################################ preview + file selection
 
     def _writeRichDatabase(self, path):
@@ -375,27 +374,33 @@ class TestLegacyMigration(unittest.TestCase):
         self._writeLegacyFile("spoolmandb_index.json", "{}")
         self._writeLegacyFile("spoolmanager-backup-V7-20260101-1200.db", "BACKUP")
 
-        entries = {entry["name"]: entry for entry in self._plugin()._getLegacyFileEntries()}
+        entries = {
+            entry["name"]: entry for entry in self._plugin()._getLegacyFileEntries()
+        }
 
         self.assertTrue(entries[DATABASE_FILE_NAME]["preselected"])
         self.assertEqual(entries[DATABASE_FILE_NAME]["kind"], "database")
         # the caches rebuild themselves and the SpoolmanDB index alone is ~10 MB
         self.assertFalse(entries["spoolmandb_index.json"]["preselected"])
         self.assertEqual(entries["spoolmandb_index.json"]["kind"], "cache")
-        self.assertFalse(entries["spoolmanager-backup-V7-20260101-1200.db"]["preselected"])
-        self.assertEqual(entries["spoolmanager-backup-V7-20260101-1200.db"]["kind"], "backup")
+        self.assertFalse(
+            entries["spoolmanager-backup-V7-20260101-1200.db"]["preselected"]
+        )
+        self.assertEqual(
+            entries["spoolmanager-backup-V7-20260101-1200.db"]["kind"], "backup"
+        )
 
     def test_fileNamesRestrictWhatIsCopied(self):
         self._writeLegacyFile(DATABASE_FILE_NAME, "OLD")
         self._writeLegacyFile("spoolmandb_index.json", "{}")
 
-        result = self._plugin()._performLegacyMigration(
-            fileNames=[DATABASE_FILE_NAME]
-        )
+        result = self._plugin()._performLegacyMigration(fileNames=[DATABASE_FILE_NAME])
 
         self.assertTrue(result["success"], result["errorMessage"])
         self.assertEqual(result["copiedFiles"], 1)
-        self.assertTrue(os.path.isfile(os.path.join(self.newFolder, DATABASE_FILE_NAME)))
+        self.assertTrue(
+            os.path.isfile(os.path.join(self.newFolder, DATABASE_FILE_NAME))
+        )
         self.assertFalse(
             os.path.isfile(os.path.join(self.newFolder, "spoolmandb_index.json"))
         )

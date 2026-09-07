@@ -22,7 +22,9 @@ class TestLoadSpoolByRfidTagKey(unittest.TestCase):
         self.database.bind(MODELS)
         self.database.create_tables(MODELS)
 
-        self.databaseManager = DatabaseManager(logging.getLogger("test.dbmanager"), False)
+        self.databaseManager = DatabaseManager(
+            logging.getLogger("test.dbmanager"), False
+        )
         self.databaseManager._database = self.database
         self.databaseManager._isConnected = True
 
@@ -104,7 +106,10 @@ class TestLoadSpoolByRfidTagKey(unittest.TestCase):
         # rfidTagKey must not be confused with / fall back to `code` - a spool may carry
         # its own unrelated serial number there (the reason this is a separate field)
         self._create(
-            code="MY-OWN-SERIAL-0001", rfidTagKey="1040", displayName="Green", isTemplate=None
+            code="MY-OWN-SERIAL-0001",
+            rfidTagKey="1040",
+            displayName="Green",
+            isTemplate=None,
         )
 
         byRfidTagKey = self.databaseManager.loadSpoolByRfidTagKey(

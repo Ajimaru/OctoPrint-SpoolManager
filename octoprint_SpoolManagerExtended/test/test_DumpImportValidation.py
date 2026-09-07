@@ -16,7 +16,9 @@ if "octoprint_SpoolManagerExtended" not in sys.modules:
     sys.modules["octoprint_SpoolManagerExtended"] = _package
 
 from octoprint_SpoolManagerExtended.DatabaseManager import MODELS, DatabaseManager
-from octoprint_SpoolManagerExtended.models.PluginMetaDataModel import PluginMetaDataModel
+from octoprint_SpoolManagerExtended.models.PluginMetaDataModel import (
+    PluginMetaDataModel,
+)
 from octoprint_SpoolManagerExtended.models.SpoolModel import SpoolModel
 
 SPOOL_TABLE = SpoolModel._meta.table_name

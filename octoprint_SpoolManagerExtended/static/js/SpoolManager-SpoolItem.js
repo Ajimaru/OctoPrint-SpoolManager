@@ -325,13 +325,18 @@ let SpoolItem;
             pickerColors[2]("#ffff00");
 
             var firstUseViewModel =
-                SpoolManagerExtendedComponentFactory.createDateTimePicker("firstUse-date-picker");
+                SpoolManagerExtendedComponentFactory.createDateTimePicker(
+                    "firstUse-date-picker"
+                );
             var lastUseViewModel =
-                SpoolManagerExtendedComponentFactory.createDateTimePicker("lastUse-date-picker");
-            var purchasedOnViewModel = SpoolManagerExtendedComponentFactory.createDateTimePicker(
-                "purchasedOn-date-picker",
-                false
-            );
+                SpoolManagerExtendedComponentFactory.createDateTimePicker(
+                    "lastUse-date-picker"
+                );
+            var purchasedOnViewModel =
+                SpoolManagerExtendedComponentFactory.createDateTimePicker(
+                    "purchasedOn-date-picker",
+                    false
+                );
             this.firstUse = firstUseViewModel.currentDateTime;
             this.lastUse = lastUseViewModel.currentDateTime;
             this.purchasedOn = purchasedOnViewModel.currentDateTime;

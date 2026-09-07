@@ -142,10 +142,7 @@ class TigerTagIdService:
                 data = json.loads(handle.read().decode("utf-8"))
         except (IOError, OSError, ValueError):
             return {}
-        return {
-            section: (data.get(section) or {})
-            for section in self.SECTIONS
-        }
+        return {section: (data.get(section) or {}) for section in self.SECTIONS}
 
     def _write_cache(self, index, etags):
         cache = {
@@ -237,9 +234,9 @@ class TigerTagIdService:
             "section_counts": {
                 section: len(data.get(section, {})) for section in self.SECTIONS
             },
-            "next_refresh_at": self._next_refresh_at(cache, ttl_days).isoformat()
-            if cache
-            else None,
+            "next_refresh_at": (
+                self._next_refresh_at(cache, ttl_days).isoformat() if cache else None
+            ),
         }
         if error:
             result["error"] = error
@@ -258,7 +255,10 @@ class TigerTagIdService:
             # Auto-update disabled in settings: never fetch, just serve whatever is
             # already on disk (cache if one exists from before disabling, else fallback).
             if cache:
-                return (cache["data"], self._status(cache, "disabled", ttl_days=ttl_days))
+                return (
+                    cache["data"],
+                    self._status(cache, "disabled", ttl_days=ttl_days),
+                )
             fallback = self._read_fallback()
             return (fallback, self._status(None, "disabled", ttl_days=ttl_days))
 
@@ -279,13 +279,20 @@ class TigerTagIdService:
                         new_data[section], new_etags[section] = result
                     any_success = True
                     break
-                except (requests.RequestException, ValueError, UnicodeDecodeError) as error:
+                except (
+                    requests.RequestException,
+                    ValueError,
+                    UnicodeDecodeError,
+                ) as error:
                     last_error = error
-                    if attempt >= self.MAX_FETCH_ATTEMPTS or not self._is_retryable_error(
-                        error
+                    if (
+                        attempt >= self.MAX_FETCH_ATTEMPTS
+                        or not self._is_retryable_error(error)
                     ):
                         self._logger.warning(
-                            "TigerTag id table refresh failed for %s: %s", section, error
+                            "TigerTag id table refresh failed for %s: %s",
+                            section,
+                            error,
                         )
                         break
                     delay_seconds = self._retry_delay_seconds(attempt)
@@ -304,7 +311,12 @@ class TigerTagIdService:
         state = "fresh" if any_success and last_error is None else "stale"
         return (
             cache["data"],
-            self._status(cache, state, ttl_days=ttl_days, error=str(last_error) if last_error else None),
+            self._status(
+                cache,
+                state,
+                ttl_days=ttl_days,
+                error=str(last_error) if last_error else None,
+            ),
         )
 
     def label(self, section, identifier, ttl_days=7):

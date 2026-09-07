@@ -5,7 +5,9 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-from octoprint_SpoolManagerExtended.common.FilamentDatabaseService import FilamentDatabaseService
+from octoprint_SpoolManagerExtended.common.FilamentDatabaseService import (
+    FilamentDatabaseService,
+)
 
 
 class FakeResponse:
@@ -92,13 +94,61 @@ class FilamentDatabaseServiceTest(unittest.TestCase):
     def test_build_index_deduplicates_ranges_and_marks_conflicts_ambiguous(self):
         index = self.service.build_index(
             [
-                {"manufacturer": "Maker", "material": "PLA", "name": "Blue", "extruder_temp": 210, "bed_temp": None, "color_hex": "0000FF"},
-                {"manufacturer": "Maker", "material": "PLA", "name": "Blue", "extruder_temp": 210, "bed_temp": None, "color_hex": "#0000ff"},
-                {"manufacturer": "Maker", "material": "PLA", "name": "Multi-color", "extruder_temp": 210, "bed_temp": 60, "color_hex": "ff0000"},
-                {"manufacturer": "Maker", "material": "PLA", "name": "Multi-color", "extruder_temp": 210, "bed_temp": 60, "color_hex": "00ff00"},
-                {"manufacturer": "Maker", "material": "PETG", "name": "Range", "extruder_temp": None, "extruder_temp_range": [220, 240], "bed_temp": None, "bed_temp_range": [70, 80]},
-                {"manufacturer": "Maker", "material": "ABS", "name": "Conflict", "extruder_temp": 230, "bed_temp": 90},
-                {"manufacturer": "Maker", "material": "ABS", "name": "Conflict", "extruder_temp": 240, "bed_temp": 90},
+                {
+                    "manufacturer": "Maker",
+                    "material": "PLA",
+                    "name": "Blue",
+                    "extruder_temp": 210,
+                    "bed_temp": None,
+                    "color_hex": "0000FF",
+                },
+                {
+                    "manufacturer": "Maker",
+                    "material": "PLA",
+                    "name": "Blue",
+                    "extruder_temp": 210,
+                    "bed_temp": None,
+                    "color_hex": "#0000ff",
+                },
+                {
+                    "manufacturer": "Maker",
+                    "material": "PLA",
+                    "name": "Multi-color",
+                    "extruder_temp": 210,
+                    "bed_temp": 60,
+                    "color_hex": "ff0000",
+                },
+                {
+                    "manufacturer": "Maker",
+                    "material": "PLA",
+                    "name": "Multi-color",
+                    "extruder_temp": 210,
+                    "bed_temp": 60,
+                    "color_hex": "00ff00",
+                },
+                {
+                    "manufacturer": "Maker",
+                    "material": "PETG",
+                    "name": "Range",
+                    "extruder_temp": None,
+                    "extruder_temp_range": [220, 240],
+                    "bed_temp": None,
+                    "bed_temp_range": [70, 80],
+                },
+                {
+                    "manufacturer": "Maker",
+                    "material": "ABS",
+                    "name": "Conflict",
+                    "extruder_temp": 230,
+                    "bed_temp": 90,
+                },
+                {
+                    "manufacturer": "Maker",
+                    "material": "ABS",
+                    "name": "Conflict",
+                    "extruder_temp": 240,
+                    "bed_temp": 90,
+                },
             ]
         )
 
@@ -118,7 +168,9 @@ class FilamentDatabaseServiceTest(unittest.TestCase):
         self.assertIsNone(conflict["extruder_temp"])
 
     def test_fetch_writes_cache_and_reuses_it_before_refresh_slot(self):
-        response = FakeResponse(b'[{"manufacturer":"Maker","material":"PLA","name":"Blue","extruder_temp":210,"bed_temp":60}]')
+        response = FakeResponse(
+            b'[{"manufacturer":"Maker","material":"PLA","name":"Blue","extruder_temp":210,"bed_temp":60}]'
+        )
         session = FakeSession(response)
         self.service._http_session = session
 
@@ -174,11 +226,37 @@ class FilamentDatabaseServiceTest(unittest.TestCase):
     def test_build_index_infers_color_name_and_finish_from_product_name(self):
         index = self.service.build_index(
             [
-                {"manufacturer": "Maker", "material": "PLA", "name": "PLA Silk Ocean Blue", "color_hex": "145DA0"},
-                {"manufacturer": "Maker", "material": "PETG", "name": "PETG Matte Black", "color_hex": "000000", "finish": "glossy"},
-                {"manufacturer": "Maker", "material": "ABS", "name": "Brand Metallic Red", "color_hex": "FF0000"},
-                {"manufacturer": "Maker", "material": "PLA", "name": "Chameleon Green - Blue", "color_hex": "38a64d"},
-                {"manufacturer": "Maker", "material": "PLA", "name": "American Yellow", "color_hex": "ffaa1d"},
+                {
+                    "manufacturer": "Maker",
+                    "material": "PLA",
+                    "name": "PLA Silk Ocean Blue",
+                    "color_hex": "145DA0",
+                },
+                {
+                    "manufacturer": "Maker",
+                    "material": "PETG",
+                    "name": "PETG Matte Black",
+                    "color_hex": "000000",
+                    "finish": "glossy",
+                },
+                {
+                    "manufacturer": "Maker",
+                    "material": "ABS",
+                    "name": "Brand Metallic Red",
+                    "color_hex": "FF0000",
+                },
+                {
+                    "manufacturer": "Maker",
+                    "material": "PLA",
+                    "name": "Chameleon Green - Blue",
+                    "color_hex": "38a64d",
+                },
+                {
+                    "manufacturer": "Maker",
+                    "material": "PLA",
+                    "name": "American Yellow",
+                    "color_hex": "ffaa1d",
+                },
             ]
         )
 
@@ -217,10 +295,30 @@ class FilamentDatabaseServiceTest(unittest.TestCase):
     def test_build_index_identifies_tinted_and_untinted_transparent_products(self):
         index = self.service.build_index(
             [
-                {"manufacturer": "Maker", "material": "PETG", "name": "Transparent Black", "color_hex": "000000"},
-                {"manufacturer": "Maker", "material": "PETG", "name": "Translucent Red", "color_hex": "ff0000"},
-                {"manufacturer": "Maker", "material": "PETG", "name": "PETG Transparent", "color_hex": "ffffff"},
-                {"manufacturer": "Maker", "material": "PCTG", "name": "PCTG Clear", "color_hex": "ffffff"},
+                {
+                    "manufacturer": "Maker",
+                    "material": "PETG",
+                    "name": "Transparent Black",
+                    "color_hex": "000000",
+                },
+                {
+                    "manufacturer": "Maker",
+                    "material": "PETG",
+                    "name": "Translucent Red",
+                    "color_hex": "ff0000",
+                },
+                {
+                    "manufacturer": "Maker",
+                    "material": "PETG",
+                    "name": "PETG Transparent",
+                    "color_hex": "ffffff",
+                },
+                {
+                    "manufacturer": "Maker",
+                    "material": "PCTG",
+                    "name": "PCTG Clear",
+                    "color_hex": "ffffff",
+                },
             ]
         )
 

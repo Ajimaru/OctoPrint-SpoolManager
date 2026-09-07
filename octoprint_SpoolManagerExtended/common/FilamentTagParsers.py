@@ -62,9 +62,7 @@ from . import FilamentTagNdef as Ndef
 from . import OpenPrintTag as OpenPrintTagModule
 from .FilamentTagModel import GenericFilament, TagType
 
-_logger = logging.getLogger(
-    "octoprint.plugins.SpoolManager.common.FilamentTagParsers"
-)
+_logger = logging.getLogger("octoprint.plugins.SpoolManager.common.FilamentTagParsers")
 
 
 def _firstNumber(*values):
@@ -87,7 +85,7 @@ def _firstNumber(*values):
 
 
 def _parseColorHex(value, default=0xFFFFFF):
-    """"RRGGBB" (or "#RRGGBB") -> the 24-bit int, ignoring any trailing alpha byte.
+    """ "RRGGBB" (or "#RRGGBB") -> the 24-bit int, ignoring any trailing alpha byte.
 
     OpenSpool's color_hex can be 8 hex digits ("RRGGBBAA") - the firmware itself writes
     whatever string it's given verbatim (no length check) but only ever reads the first
@@ -461,7 +459,7 @@ class AnycubicTagParser(object):
 
     # The layout starts with this marker at 0x10; anything else is not an Anycubic tag.
     MAGIC_OFFSET = 0x10
-    MAGIC = b"\x7B\x00\x65\x00"
+    MAGIC = b"\x7b\x00\x65\x00"
 
     def parseTag(self, scanResult, data):
         if scanResult.tag_type != TagType.MIFARE_ULTRALIGHT:
@@ -538,7 +536,7 @@ class ElegooTagParser(object):
     DATA_OFFSET = 0x40
     DATA_LENGTH = 0x29
     MAGIC_OFFSET = 0x01
-    MAGIC = b"\xEE\xEE\xEE\xEE"
+    MAGIC = b"\xee\xee\xee\xee"
 
     def parseTag(self, scanResult, data):
         if scanResult.tag_type != TagType.MIFARE_ULTRALIGHT:
@@ -1173,7 +1171,8 @@ def _octoscaleMinuteOfDayOrNone(value):
 def _octoscaleEpochDaysToIso(days):
     """Epoch-days (days since 1970-01-01) to an ISO 8601 date string, or the "not set"
     sentinel GenericFilament otherwise uses. Mirrors TagFormats._epochDaysOrNone() in
-    reverse: that function goes date -> epoch-days for the write side, this goes back."""
+    reverse: that function goes date -> epoch-days for the write side, this goes back.
+    """
     days = _octoscaleU16OrNone(days)
     if days is None:
         return Constants.NO_MANUFACTURING_DATE
@@ -1219,7 +1218,9 @@ def _octoscaleParseColorFlags(flagsByte):
     """
     flags = flagsByte or 0
     isTransparent = bool(flags & _OCTOSCALE_COLOR_FLAG_TRANSPARENT)
-    colorCount = (flags & _OCTOSCALE_COLOR_FLAG_COUNT_MASK) >> _OCTOSCALE_COLOR_FLAG_COUNT_SHIFT
+    colorCount = (
+        flags & _OCTOSCALE_COLOR_FLAG_COUNT_MASK
+    ) >> _OCTOSCALE_COLOR_FLAG_COUNT_SHIFT
     isRainbow = bool(flags & _OCTOSCALE_COLOR_FLAG_RAINBOW)
     return isTransparent, colorCount, isRainbow
 
@@ -1424,8 +1425,12 @@ class OctoScaleExtendedTagParser(object):
         diameterTolerance = _octoscaleU16OrNone(
             Binary.extract_uint16_le(data, self.BLOCK_9_PHYSICAL + 2)
         )
-        hotendTemp = _octoscaleU8OrNone(Binary.extract_byte(data, self.BLOCK_9_PHYSICAL + 4))
-        bedTemp = _octoscaleU8OrNone(Binary.extract_byte(data, self.BLOCK_9_PHYSICAL + 5))
+        hotendTemp = _octoscaleU8OrNone(
+            Binary.extract_byte(data, self.BLOCK_9_PHYSICAL + 4)
+        )
+        bedTemp = _octoscaleU8OrNone(
+            Binary.extract_byte(data, self.BLOCK_9_PHYSICAL + 5)
+        )
         enclosureTemp = _octoscaleU8OrNone(
             Binary.extract_byte(data, self.BLOCK_9_PHYSICAL + 6)
         )
@@ -1438,14 +1443,22 @@ class OctoScaleExtendedTagParser(object):
         blue = Binary.extract_byte(data, self.BLOCK_9_PHYSICAL + 12)
         argb = _octoscaleColorArgb(red, green, blue)
 
-        hotendMin = _octoscaleU8OrNone(Binary.extract_byte(data, self.BLOCK_9_PHYSICAL + 13))
-        hotendMax = _octoscaleU8OrNone(Binary.extract_byte(data, self.BLOCK_9_PHYSICAL + 14))
+        hotendMin = _octoscaleU8OrNone(
+            Binary.extract_byte(data, self.BLOCK_9_PHYSICAL + 13)
+        )
+        hotendMax = _octoscaleU8OrNone(
+            Binary.extract_byte(data, self.BLOCK_9_PHYSICAL + 14)
+        )
 
         bedMin = None
         bedMax = None
         if isV2 and len(data) >= self.BLOCK_10_BED_RANGE + 2:
-            bedMin = _octoscaleU8OrNone(Binary.extract_byte(data, self.BLOCK_10_BED_RANGE + 0))
-            bedMax = _octoscaleU8OrNone(Binary.extract_byte(data, self.BLOCK_10_BED_RANGE + 1))
+            bedMin = _octoscaleU8OrNone(
+                Binary.extract_byte(data, self.BLOCK_10_BED_RANGE + 0)
+            )
+            bedMax = _octoscaleU8OrNone(
+                Binary.extract_byte(data, self.BLOCK_10_BED_RANGE + 1)
+            )
 
         # v4: colors 2/3 (block10[2..4], [5..7]) and the shared flags byte (block10[8]).
         # Color 1 stays at block9[10..12], unmoved since v1 - see the class docstring.
@@ -1543,7 +1556,8 @@ class OctoScaleExtendedTagParser(object):
             manufacturer=strings1.get("vendor"),
             type=strings1.get("material"),
             modifiers=[],
-            colors=([argb] if argb is not None else []) + [c for c in extraColors if c is not None],
+            colors=([argb] if argb is not None else [])
+            + [c for c in extraColors if c is not None],
             diameter_mm=(diameter / 1000.0) if diameter is not None else None,
             weight_grams=totalWeight,
             hotend_min_temp_c=hotendMin if hotendMin is not None else hotendTemp,
@@ -1656,8 +1670,14 @@ class OctoScaleExtendedNtagTagParser(object):
     CRC_COVERAGE_LENGTH = 36  # fixed, pages 4..12 - unchanged by v2, unlike Classic
 
     STRING_FIELDS = (
-        "vendor", "material", "colorName", "code",
-        "batchNumber", "purchasedFrom", "finish", "displayName",
+        "vendor",
+        "material",
+        "colorName",
+        "code",
+        "batchNumber",
+        "purchasedFrom",
+        "finish",
+        "displayName",
     )
 
     # Firmware scans, rather than computes, the marker position - and so must this parser:
@@ -1697,24 +1717,36 @@ class OctoScaleExtendedNtagTagParser(object):
             return None
 
         databaseId = Binary.extract_uint32_le(data, self.PAGE_5_DB_ID)
-        totalWeight = _octoscaleU16OrNone(Binary.extract_uint16_le(data, self.PAGE_6_WEIGHTS))
+        totalWeight = _octoscaleU16OrNone(
+            Binary.extract_uint16_le(data, self.PAGE_6_WEIGHTS)
+        )
         spoolWeight = _octoscaleU16OrNone(
             Binary.extract_uint16_le(data, self.PAGE_6_WEIGHTS + 2)
         )
-        usedWeight = _octoscaleU16OrNone(Binary.extract_uint16_le(data, self.PAGE_7_WEIGHTS2))
+        usedWeight = _octoscaleU16OrNone(
+            Binary.extract_uint16_le(data, self.PAGE_7_WEIGHTS2)
+        )
         remainingWeight = _octoscaleU16OrNone(
             Binary.extract_uint16_le(data, self.PAGE_7_WEIGHTS2 + 2)
         )
-        density = _octoscaleU16OrNone(Binary.extract_uint16_le(data, self.PAGE_8_PHYSICAL))
+        density = _octoscaleU16OrNone(
+            Binary.extract_uint16_le(data, self.PAGE_8_PHYSICAL)
+        )
         diameter = _octoscaleU16OrNone(
             Binary.extract_uint16_le(data, self.PAGE_8_PHYSICAL + 2)
         )
         diameterTolerance = _octoscaleU16OrNone(
             Binary.extract_uint16_le(data, self.PAGE_9_PHYSICAL2)
         )
-        hotendTemp = _octoscaleU8OrNone(Binary.extract_byte(data, self.PAGE_9_PHYSICAL2 + 2))
-        bedTemp = _octoscaleU8OrNone(Binary.extract_byte(data, self.PAGE_9_PHYSICAL2 + 3))
-        enclosureTemp = _octoscaleU8OrNone(Binary.extract_byte(data, self.PAGE_10_TEMPS))
+        hotendTemp = _octoscaleU8OrNone(
+            Binary.extract_byte(data, self.PAGE_9_PHYSICAL2 + 2)
+        )
+        bedTemp = _octoscaleU8OrNone(
+            Binary.extract_byte(data, self.PAGE_9_PHYSICAL2 + 3)
+        )
+        enclosureTemp = _octoscaleU8OrNone(
+            Binary.extract_byte(data, self.PAGE_10_TEMPS)
+        )
         offsetTemp = Binary.extract_int8(data, self.PAGE_10_TEMPS + 1)
         offsetBedTemp = Binary.extract_int8(data, self.PAGE_10_TEMPS + 2)
         offsetEnclosureTemp = Binary.extract_int8(data, self.PAGE_10_TEMPS + 3)
@@ -1724,7 +1756,9 @@ class OctoScaleExtendedNtagTagParser(object):
         blue = Binary.extract_byte(data, self.PAGE_11_COLOR + 2)
         argb = _octoscaleColorArgb(red, green, blue)
 
-        hotendMax = _octoscaleU8OrNone(Binary.extract_byte(data, self.PAGE_11_COLOR + 3))
+        hotendMax = _octoscaleU8OrNone(
+            Binary.extract_byte(data, self.PAGE_11_COLOR + 3)
+        )
         hotendMin = _octoscaleU8OrNone(Binary.extract_byte(data, self.PAGE_12_TEMPS2))
         bedMin = _octoscaleU8OrNone(Binary.extract_byte(data, self.PAGE_12_TEMPS2 + 1))
         bedMax = _octoscaleU8OrNone(Binary.extract_byte(data, self.PAGE_12_TEMPS2 + 2))
@@ -1759,20 +1793,22 @@ class OctoScaleExtendedNtagTagParser(object):
         usedLengthBytes12 = Binary.extract_uint16_le(data, self.PAGE_15_LENGTHS2)
         usedLength = None
         if usedLengthByte0 is not None and usedLengthBytes12 is not None:
-            usedLength = _octoscaleU24OrNone(
-                usedLengthByte0 | (usedLengthBytes12 << 8)
-            )
+            usedLength = _octoscaleU24OrNone(usedLengthByte0 | (usedLengthBytes12 << 8))
 
         rawCost = _octoscaleU16OrNone(
             Binary.extract_uint16_le(data, self.PAGE_15_LENGTHS2 + 2)
         )
         cost = (rawCost / 100.0) if rawCost is not None else None
 
-        firstUse = _octoscaleU16OrNone(Binary.extract_uint16_le(data, self.PAGE_16_DATES))
+        firstUse = _octoscaleU16OrNone(
+            Binary.extract_uint16_le(data, self.PAGE_16_DATES)
+        )
         firstUseMinute = _octoscaleMinuteOfDayOrNone(
             Binary.extract_uint16_le(data, self.PAGE_16_DATES + 2)
         )
-        lastUse = _octoscaleU16OrNone(Binary.extract_uint16_le(data, self.PAGE_17_DATES2))
+        lastUse = _octoscaleU16OrNone(
+            Binary.extract_uint16_le(data, self.PAGE_17_DATES2)
+        )
         purchasedOn = _octoscaleU16OrNone(
             Binary.extract_uint16_le(data, self.PAGE_17_DATES2 + 2)
         )
@@ -1791,9 +1827,7 @@ class OctoScaleExtendedNtagTagParser(object):
         # there). Only accepted when found within the actual data length and before the
         # scan's own generous upper bound.
         markerPage = None
-        maxScanPage = min(
-            self.MAX_MARKER_SCAN_PAGES, (len(data) // 4)
-        )
+        maxScanPage = min(self.MAX_MARKER_SCAN_PAGES, (len(data) // 4))
         for page in range(stringsStartPage, maxScanPage):
             if Binary.extract_slice(data, page * 4, 2) == self.MARKER:
                 markerPage = page
@@ -1801,9 +1835,7 @@ class OctoScaleExtendedNtagTagParser(object):
         if markerPage is None:
             return None
 
-        strings = _octoscaleReadStrings(
-            data, stringsStartPage * 4, self.STRING_FIELDS
-        )
+        strings = _octoscaleReadStrings(data, stringsStartPage * 4, self.STRING_FIELDS)
 
         manufacturingDate = _octoscaleEpochDaysToIso(firstUse)
 
@@ -1815,7 +1847,8 @@ class OctoScaleExtendedNtagTagParser(object):
             manufacturer=strings.get("vendor"),
             type=strings.get("material"),
             modifiers=[],
-            colors=([argb] if argb is not None else []) + [c for c in extraColors if c is not None],
+            colors=([argb] if argb is not None else [])
+            + [c for c in extraColors if c is not None],
             diameter_mm=(diameter / 1000.0) if diameter is not None else None,
             weight_grams=totalWeight,
             hotend_min_temp_c=hotendMin if hotendMin is not None else hotendTemp,
@@ -1943,11 +1976,15 @@ class OctoScaleExtendedNfcvTagParser(object):
         stringsPresent = bool(flags & 0x01)
 
         databaseId = Binary.extract_uint32_le(data, self.BLOCK_4_DB_ID)
-        totalWeight = _octoscaleU16OrNone(Binary.extract_uint16_le(data, self.BLOCK_5_WEIGHTS))
+        totalWeight = _octoscaleU16OrNone(
+            Binary.extract_uint16_le(data, self.BLOCK_5_WEIGHTS)
+        )
         spoolWeight = _octoscaleU16OrNone(
             Binary.extract_uint16_le(data, self.BLOCK_5_WEIGHTS + 2)
         )
-        usedWeight = _octoscaleU16OrNone(Binary.extract_uint16_le(data, self.BLOCK_6_WEIGHTS2))
+        usedWeight = _octoscaleU16OrNone(
+            Binary.extract_uint16_le(data, self.BLOCK_6_WEIGHTS2)
+        )
         density = _octoscaleU16OrNone(
             Binary.extract_uint16_le(data, self.BLOCK_6_WEIGHTS2 + 2)
         )
@@ -2002,7 +2039,8 @@ class OctoScaleExtendedNfcvTagParser(object):
             manufacturer=strings.get("vendor"),
             type=strings.get("material"),
             modifiers=[],
-            colors=([argb] if argb is not None else []) + [c for c in extraColors if c is not None],
+            colors=([argb] if argb is not None else [])
+            + [c for c in extraColors if c is not None],
             diameter_mm=None,
             weight_grams=totalWeight,
             hotend_min_temp_c=None,
@@ -2298,6 +2336,9 @@ def parseTagData(scanResult, data, parserIds=None, keyStore=None):
             )
             continue
         if filament is not None:
-            return filament, {"attemptedParsers": attempted, "parserId": descriptor["id"]}
+            return filament, {
+                "attemptedParsers": attempted,
+                "parserId": descriptor["id"],
+            }
 
     return None, {"attemptedParsers": attempted, "parserId": None}

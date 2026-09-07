@@ -375,9 +375,7 @@ def _primaryColorBytes(spoolModel):
     if len(text) not in (6, 8):
         return None
     try:
-        rgbBytes = bytes(
-            int(text[index : index + 2], 16) for index in (0, 2, 4)
-        )
+        rgbBytes = bytes(int(text[index : index + 2], 16) for index in (0, 2, 4))
     except ValueError:
         return None
     return rgbBytes
@@ -426,9 +424,7 @@ def spoolModelToFields(spoolModel):
         "nominal_netto_full_weight": _toFloat32(
             getattr(spoolModel, "totalWeight", None)
         ),
-        "empty_container_weight": _toFloat32(
-            getattr(spoolModel, "spoolWeight", None)
-        ),
+        "empty_container_weight": _toFloat32(getattr(spoolModel, "spoolWeight", None)),
         "primary_color": _primaryColorBytes(spoolModel),
         "density": _toFloat32(getattr(spoolModel, "density", None)),
         "filament_diameter": _toFloat32(getattr(spoolModel, "diameter", None)),
@@ -694,7 +690,9 @@ def fieldsToSpoolValues(fields):
 
     materialName = fields.get("material_name")
     materialType = fields.get("material_type")
-    material = _MATERIAL_TYPE_BY_INDEX.get(materialType) if materialType is not None else None
+    material = (
+        _MATERIAL_TYPE_BY_INDEX.get(materialType) if materialType is not None else None
+    )
     if material is None:
         material = materialName
     if material is not None:

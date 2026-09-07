@@ -96,22 +96,51 @@ ANYCUBIC_DEFAULT_WEIGHT_G = 1000
 # Upstream folds a "6"/"12" modifier into the type name (PA + "6" -> "PA6"), which is done
 # in _elegooMaterial() below rather than in a class.
 _ELEGOO_MODIFIERS = {
-    0x00: ("PLA", {
-        0x00: [], 0x01: ["+"], 0x02: ["Pro"], 0x03: ["Silk"], 0x04: ["CF"],
-        0x05: ["Carbon"], 0x06: ["Matte"], 0x07: ["Fluo"], 0x08: ["Wood"],
-        0x09: ["Basic"], 0x0A: ["RAPID", "+"], 0x0B: ["Marble"], 0x0C: ["Galaxy"],
-        0x0D: ["Red", "Copper"], 0x0E: ["Sparkle"],
-    }),
-    0x01: ("PETG", {
-        0x00: [], 0x01: ["CF"], 0x02: ["GF"], 0x03: ["Pro"],
-        0x04: ["Translucent"], 0x05: ["RAPID"],
-    }),
+    0x00: (
+        "PLA",
+        {
+            0x00: [],
+            0x01: ["+"],
+            0x02: ["Pro"],
+            0x03: ["Silk"],
+            0x04: ["CF"],
+            0x05: ["Carbon"],
+            0x06: ["Matte"],
+            0x07: ["Fluo"],
+            0x08: ["Wood"],
+            0x09: ["Basic"],
+            0x0A: ["RAPID", "+"],
+            0x0B: ["Marble"],
+            0x0C: ["Galaxy"],
+            0x0D: ["Red", "Copper"],
+            0x0E: ["Sparkle"],
+        },
+    ),
+    0x01: (
+        "PETG",
+        {
+            0x00: [],
+            0x01: ["CF"],
+            0x02: ["GF"],
+            0x03: ["Pro"],
+            0x04: ["Translucent"],
+            0x05: ["RAPID"],
+        },
+    ),
     0x02: ("ABS", {0x00: [], 0x01: ["GF"]}),
     0x03: ("TPU", {0x00: [], 0x01: ["95A"], 0x02: ["RAPID", "95A"]}),
-    0x04: ("PA", {
-        0x00: [], 0x01: ["CF"], 0x03: ["HT", "CF"], 0x04: ["6"],
-        0x05: ["6", "CF"], 0x06: ["12"], 0x07: ["12", "CF"],
-    }),
+    0x04: (
+        "PA",
+        {
+            0x00: [],
+            0x01: ["CF"],
+            0x03: ["HT", "CF"],
+            0x04: ["6"],
+            0x05: ["6", "CF"],
+            0x06: ["12"],
+            0x07: ["12", "CF"],
+        },
+    ),
     0x05: ("CPE", {0x00: []}),
     0x06: ("PC", {0x00: [], 0x01: ["TG"], 0x02: ["FR"]}),
     0x07: ("PVA", {0x00: []}),
@@ -240,7 +269,8 @@ _tigerTagIdService = None
 
 def setTigerTagIdService(service):
     """Registers the live TigerTagIdService so lookups prefer its auto-updated tables
-    over the static fallback snapshot. Called once from __init__.py after construction."""
+    over the static fallback snapshot. Called once from __init__.py after construction.
+    """
     global _tigerTagIdService
     _tigerTagIdService = service
 

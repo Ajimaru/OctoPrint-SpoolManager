@@ -181,9 +181,7 @@ class TestMoonrakerFilamentMetaData(unittest.TestCase):
             MOONRAKER_PARAMS, payload, fileManagerMetadata=CONNECTOR_ANALYSIS
         )
 
-        filament = plugin._getFilamentMetaData(
-            PRINTER, "single.gcode"
-        )
+        filament = plugin._getFilamentMetaData(PRINTER, "single.gcode")
 
         self.assertEqual(filament, {"tool0": {"length": 21872.8}})
 
@@ -200,9 +198,7 @@ class TestMoonrakerFilamentMetaData(unittest.TestCase):
         self.assertEqual(filament, {"tool0": {"length": 21872.8}})
 
     def test_scalarDiameterIsAccepted(self):
-        payload = {
-            "result": dict(MOONRAKER_METADATA["result"], filament_diameter=1.75)
-        }
+        payload = {"result": dict(MOONRAKER_METADATA["result"], filament_diameter=1.75)}
         plugin = FakePlugin(MOONRAKER_PARAMS, payload)
 
         filament = plugin._getFilamentFromMoonraker("scalar.gcode")

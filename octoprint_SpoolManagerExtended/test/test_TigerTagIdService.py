@@ -89,7 +89,9 @@ class TigerTagIdServiceTest(unittest.TestCase):
 
         self.assertEqual("PE-CF", service.label("id_material", 18775))
         self.assertEqual(18775, service.id_for_label("id_material", "PE-CF"))
-        self.assertEqual(18775, service.id_for_label("id_material", "pe-cf"))  # case-insensitive
+        self.assertEqual(
+            18775, service.id_for_label("id_material", "pe-cf")
+        )  # case-insensitive
         self.assertEqual("Atome3D", service.label("id_brand", 1))
         self.assertIsNone(service.label("id_brand", 999))
         self.assertIsNone(service.id_for_label("id_material", "Unobtainium"))
@@ -116,10 +118,11 @@ class TigerTagIdServiceTest(unittest.TestCase):
         # Falls back to the shipped snapshot rather than returning nothing.
         self.assertIn("id_diameter", data)
 
-    def test_all_sections_failing_on_first_ever_fetch_falls_back_to_shipped_snapshot(self):
+    def test_all_sections_failing_on_first_ever_fetch_falls_back_to_shipped_snapshot(
+        self,
+    ):
         allFailing = {
-            name: requests.ConnectionError("network")
-            for name in _allSectionResponses()
+            name: requests.ConnectionError("network") for name in _allSectionResponses()
         }
         session = FakeSession(allFailing)
         service = self._service(session=session, sleep=lambda seconds: None)
@@ -154,9 +157,7 @@ class TigerTagIdServiceTest(unittest.TestCase):
 
         # Second fetch (forced): brand fails, everything else would succeed again.
         session2 = FakeSession(
-            _allSectionResponses(
-                {"id_brand.json": requests.ConnectionError("network")}
-            )
+            _allSectionResponses({"id_brand.json": requests.ConnectionError("network")})
         )
         service._http_session = session2
         service._sleep = lambda seconds: None
