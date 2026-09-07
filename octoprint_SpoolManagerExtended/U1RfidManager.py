@@ -330,7 +330,11 @@ class U1RfidManager(object):
 
         if websocket is None:
             self._applyChain(
-                chain, "Python package 'websocket-client' is missing", printerInfo, None, None
+                chain,
+                "Python package 'websocket-client' is missing",
+                printerInfo,
+                None,
+                None,
             )
             return
 
@@ -391,8 +395,8 @@ class U1RfidManager(object):
         payload = self._httpGet(host, port, "/machine/system_info")
         if not payload:
             return {}
-        productInfo = (payload.get("result") or {}).get("system_info", {}).get(
-            "product_info", {}
+        productInfo = (
+            (payload.get("result") or {}).get("system_info", {}).get("product_info", {})
         )
         if not isinstance(productInfo, dict):
             return {}
@@ -422,7 +426,10 @@ class U1RfidManager(object):
         with self._lock:
             channels = []
             for channel in sorted(
-                set(list(self._lastUidByChannel.keys()) + list(self._unknownTagByChannel.keys()))
+                set(
+                    list(self._lastUidByChannel.keys())
+                    + list(self._unknownTagByChannel.keys())
+                )
             ):
                 uid = self._lastUidByChannel.get(channel)
                 unknown = self._unknownTagByChannel.get(channel)
@@ -505,7 +512,12 @@ class U1RfidManager(object):
                     "databaseId": spoolModel.databaseId if spoolModel else None,
                 }
             )
-        return {"ok": True, "message": "Connected", "status": status, "channels": channels}
+        return {
+            "ok": True,
+            "message": "Connected",
+            "status": status,
+            "channels": channels,
+        }
 
     ################################################################################################ websocket reader
 
@@ -570,12 +582,16 @@ class U1RfidManager(object):
         self._lastError = None
         self._logger.info("U1 RFID: connected to %s" % url)
 
-        self._send(socketRef, "server.connection.identify", {
-            "client_name": "OctoPrint-SpoolManager",
-            "version": str(getattr(self._plugin, "_plugin_version", "")),
-            "type": "agent",
-            "url": "https://github.com/Ajimaru/OctoPrint-SpoolManager",
-        })
+        self._send(
+            socketRef,
+            "server.connection.identify",
+            {
+                "client_name": "OctoPrint-SpoolManager",
+                "version": str(getattr(self._plugin, "_plugin_version", "")),
+                "type": "agent",
+                "url": "https://github.com/Ajimaru/OctoPrint-SpoolManager",
+            },
+        )
         self._send(
             socketRef,
             "printer.objects.subscribe",
@@ -680,7 +696,8 @@ class U1RfidManager(object):
                     "timestamp": time.time(),
                 }
             self._logger.info(
-                "U1 RFID: tag %s (channel %d) is not assigned to any spool" % (uid, channel)
+                "U1 RFID: tag %s (channel %d) is not assigned to any spool"
+                % (uid, channel)
             )
             self._plugin._sendDataToClient(
                 {

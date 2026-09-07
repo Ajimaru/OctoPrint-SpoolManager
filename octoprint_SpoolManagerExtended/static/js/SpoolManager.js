@@ -233,7 +233,8 @@ $(function () {
         self.schemeUpgradeNeeded = ko.observable(false);
 
         self.downloadDatabaseUrl = ko.observable();
-        self.databaseConnectionProblemDialog = new SpoolManagerExtendedDatabaseConnectionProblemDialog();
+        self.databaseConnectionProblemDialog =
+            new SpoolManagerExtendedDatabaseConnectionProblemDialog();
 
         self.databaseMetaData = {
             localSchemeVersionFromDatabaseModel: ko.observable(),
@@ -446,7 +447,7 @@ $(function () {
             return {
                 "text-success": status === "ok",
                 "text-error": status === "invalid",
-                muted: status !== "ok" && status !== "invalid"
+                "muted": status !== "ok" && status !== "invalid"
             };
         };
 
@@ -1145,7 +1146,8 @@ $(function () {
 
                 if (result != null && result["success"] == true) {
                     var resultText =
-                        result["appliedCount"] + " setting(s) migrated from SpoolManager.";
+                        result["appliedCount"] +
+                        " setting(s) migrated from SpoolManager.";
                     self.legacyMigrationResultText(resultText);
                     self.legacySettingsUndoAvailable(true);
                     self.legacyMigrationPending(false);
@@ -1232,9 +1234,7 @@ $(function () {
                             !self.legacyDatabaseUndoAvailable() &&
                             !self.legacySettingsUndoAvailable()
                         ) {
-                            self.legacyMigrationPending(
-                                self.legacyMigrationAvailable()
-                            );
+                            self.legacyMigrationPending(self.legacyMigrationAvailable());
                         }
 
                         SPOOLMANAGER_DIALOGS.confirm({
@@ -2977,17 +2977,14 @@ $(function () {
             loadSettingsFromBrowserStore();
 
             // resetSettings-Stuff
-            new SpoolManagerExtendedResetSettingsUtilV3(self.pluginSettings).assignResetSettingsFeature(
-                PLUGIN_ID,
-                function (data) {
-                    // the reset writes straight into pluginSettings, so push the new values back into
-                    // the pickers (they render themselves from their observable)
-                    self.qrCodeFillColor(self.pluginSettings.qrCodeFillColor());
-                    self.qrCodeBackgroundColor(
-                        self.pluginSettings.qrCodeBackgroundColor()
-                    );
-                }
-            );
+            new SpoolManagerExtendedResetSettingsUtilV3(
+                self.pluginSettings
+            ).assignResetSettingsFeature(PLUGIN_ID, function (data) {
+                // the reset writes straight into pluginSettings, so push the new values back into
+                // the pickers (they render themselves from their observable)
+                self.qrCodeFillColor(self.pluginSettings.qrCodeFillColor());
+                self.qrCodeBackgroundColor(self.pluginSettings.qrCodeBackgroundColor());
+            });
 
             // Load sidebar data (selected spools always; full selector list only when not lazy)
             self.loadSidebarSpoolWidgetsData();
@@ -3076,9 +3073,7 @@ $(function () {
             // Only fields the user actually typed into are written. An empty field keeps the
             // stored key, because the input never shows what is saved - clearing it here
             // would wipe a working key just by opening the dialog and pressing Save.
-            var stored = ko.utils.unwrapObservable(
-                self.pluginSettings.octoScaleTagKeys
-            );
+            var stored = ko.utils.unwrapObservable(self.pluginSettings.octoScaleTagKeys);
             var keys = {};
             if (stored) {
                 Object.keys(stored).forEach(function (name) {

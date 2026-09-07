@@ -167,7 +167,11 @@ var OCTOSCALE_TAG_DIFF_FIELDS = [
     // _buildFullSpoolPayload for the write-side reasoning).
     {key: "offsetTemperature", label: "Nozzle temperature offset", unit: "°C"},
     {key: "offsetBedTemperature", label: "Bed temperature offset", unit: "°C"},
-    {key: "offsetEnclosureTemperature", label: "Enclosure temperature offset", unit: "°C"},
+    {
+        key: "offsetEnclosureTemperature",
+        label: "Enclosure temperature offset",
+        unit: "°C"
+    },
     {key: "dryingTemperature", label: "Drying temperature", unit: "°C"},
     // The tag carries minutes (OpenPrintTag spec key 58), SpoolManager stores hours - so
     // the tag value has to be divided before it can be compared with, or shown next to,
@@ -213,18 +217,6 @@ var OCTOSCALE_TAG_DIFF_DATE_FIELDS = [
 
 var OCTOSCALE_EPOCH_DATE_MS = Date.UTC(1970, 0, 1);
 
-function octoScaleEpochDaysToText(epochDays, format) {
-    // -1 is the firmware's "not set" sentinel here too (see octoScaleNormalizeTagValue) -
-    // caught explicitly since epoch day -1 (1969-12-31) is itself a valid moment() result
-    // and would otherwise silently read as a real date.
-    if (epochDays == null || epochDays === -1) {
-        return null;
-    }
-    return moment(OCTOSCALE_EPOCH_DATE_MS + epochDays * 86400000)
-        .utc()
-        .format(format);
-}
-
 // The day and the time of day are two separate fields on the tag: the day has always been
 // there, the minute-of-day is optional and may be absent (older firmware, older tag, or a
 // value that never had a time). Missing or sentinel means midnight, which is exactly the
@@ -240,11 +232,7 @@ function octoScaleTagDateText(tagValues, field) {
         var minuteOfDay = tagValues[field.minuteOfDayKey];
         // 0xFFFF is the firmware's uint16 "not set" sentinel; anything outside a real day
         // is treated the same way rather than shifting the date into the next one.
-        if (
-            typeof minuteOfDay === "number" &&
-            minuteOfDay >= 0 &&
-            minuteOfDay < 1440
-        ) {
+        if (typeof minuteOfDay === "number" && minuteOfDay >= 0 && minuteOfDay < 1440) {
             offsetMs = minuteOfDay * 60000;
         }
     }
@@ -602,13 +590,7 @@ function SpoolManagerOctoScaleTagWriter(apiClient, pluginSettings) {
                 typeof spoolItem[field.key] === "function"
                     ? spoolItem[field.key]()
                     : null;
-            if (
-                !octoScaleValuesDiffer(
-                    tagValue,
-                    currentValue,
-                    field.caseInsensitive
-                )
-            ) {
+            if (!octoScaleValuesDiffer(tagValue, currentValue, field.caseInsensitive)) {
                 return;
             }
             diffs.push({
@@ -619,10 +601,7 @@ function SpoolManagerOctoScaleTagWriter(apiClient, pluginSettings) {
         });
 
         OCTOSCALE_TAG_DIFF_DATE_FIELDS.forEach(function (field) {
-            var hasDayField = Object.prototype.hasOwnProperty.call(
-                tagValues,
-                field.key
-            );
+            var hasDayField = Object.prototype.hasOwnProperty.call(tagValues, field.key);
             if (!hasDayField) {
                 // The minute-of-day field is meaningless without its day field.
                 return;
@@ -761,9 +740,7 @@ function SpoolManagerOctoScaleTagWriter(apiClient, pluginSettings) {
                 self.formatLabel(
                     responseData.present === true ? responseData.formatLabel : null
                 );
-                self.product(
-                    responseData.present === true ? responseData.product : null
-                );
+                self.product(responseData.present === true ? responseData.product : null);
                 self.hasExtendedData(
                     responseData.present === true && responseData.hasExtendedData === true
                 );
@@ -1058,7 +1035,11 @@ function SpoolManagerOctoScaleTagWriter(apiClient, pluginSettings) {
                     label: "Density (from material)",
                     tagValueText: octoScaleFormatDiffValue(suggestedDensity, "g/cm³"),
                     dbValueText: octoScaleFormatDiffValue(currentDensity, "g/cm³"),
-                    differs: octoScaleValuesDiffer(suggestedDensity, currentDensity, false)
+                    differs: octoScaleValuesDiffer(
+                        suggestedDensity,
+                        currentDensity,
+                        false
+                    )
                 });
             }
         }

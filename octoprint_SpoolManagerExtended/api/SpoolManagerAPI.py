@@ -20,11 +20,6 @@ from octoprint.access.permissions import Permissions
 from octoprint.server.util.flask import no_firstrun_access
 
 from octoprint_SpoolManagerExtended import DatabaseManager
-from octoprint_SpoolManagerExtended.U1RfidManager import (
-    deriveRfidTagKey,
-    isPlausibleTagUid,
-    normalizeCardUid,
-)
 from octoprint_SpoolManagerExtended.api import Transformer
 from octoprint_SpoolManagerExtended.common import (
     CSVExportImporter,
@@ -42,6 +37,11 @@ from octoprint_SpoolManagerExtended.common import (
 from octoprint_SpoolManagerExtended.common.EventBusKeys import EventBusKeys
 from octoprint_SpoolManagerExtended.common.SettingsKeys import SettingsKeys
 from octoprint_SpoolManagerExtended.models.SpoolModel import SpoolModel
+from octoprint_SpoolManagerExtended.U1RfidManager import (
+    deriveRfidTagKey,
+    isPlausibleTagUid,
+    normalizeCardUid,
+)
 
 
 class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
@@ -154,7 +154,9 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
             return self._spoolman_db_disabled_response()
         vendor = request.args.get("vendor", "").strip()
         if not vendor:
-            return flask.jsonify({"enabled": True, "materials": [], "cache": {"status": "fresh"}})
+            return flask.jsonify(
+                {"enabled": True, "materials": [], "cache": {"status": "fresh"}}
+            )
         materials, status = self._filamentDatabaseService.materials(
             vendor, self._spoolman_db_ttl_days()
         )
@@ -168,7 +170,9 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
         vendor = request.args.get("vendor", "").strip()
         material = request.args.get("material", "").strip()
         if not vendor or not material:
-            return flask.jsonify({"enabled": True, "products": [], "cache": {"status": "fresh"}})
+            return flask.jsonify(
+                {"enabled": True, "products": [], "cache": {"status": "fresh"}}
+            )
         products, status = self._filamentDatabaseService.products(
             vendor, material, self._spoolman_db_ttl_days()
         )
@@ -184,7 +188,9 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
         cache, status = self._filamentDatabaseService.ensure_index(
             self._spoolman_db_ttl_days(), force=True
         )
-        return flask.jsonify({"enabled": True, "cache": status, "available": cache is not None})
+        return flask.jsonify(
+            {"enabled": True, "cache": status, "available": cache is not None}
+        )
 
     @octoprint.plugin.BlueprintPlugin.route("/tigerTagIdsStatus", methods=["GET"])
     @no_firstrun_access
@@ -810,9 +816,7 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
                     # the spool sits on a tool this print never uses. No checkRemainingFilament()
                     # for these tools: the print does not consume from them.
                     unusedToolSpoolModel = (
-                        spoolModels[toolIndex]
-                        if toolIndex < len(spoolModels)
-                        else None
+                        spoolModels[toolIndex] if toolIndex < len(spoolModels) else None
                     )
                     if unusedToolSpoolModel is not None:
                         result["spoolsOnUnusedTools"].append(
@@ -1032,7 +1036,9 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
             {"spool": Transformer.transformSpoolModelToDict(spoolModel)}
         )
 
-    @octoprint.plugin.BlueprintPlugin.route("/spool/byCode/<string:code>", methods=["GET"])
+    @octoprint.plugin.BlueprintPlugin.route(
+        "/spool/byCode/<string:code>", methods=["GET"]
+    )
     @no_firstrun_access
     def getSpoolByCode(self, code):
         # Resolves a spool by its `code` field (an RFID tag UID, e.g. a foreign/manufacturer
@@ -1582,7 +1588,9 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
             "tagTypeName": nfcData.get("typeName"),
             "capacityBytes": nfcData.get("capacityBytes"),
             "writeFormat": nfcData.get("writeFormat")
-            or TagFormats.formatForTagType(tagType, nfcvFormatSetting, ntagFormatSetting),
+            or TagFormats.formatForTagType(
+                tagType, nfcvFormatSetting, ntagFormatSetting
+            ),
             "formatLabel": nfcData.get("formatLabel"),
             # The actual chip identification ("Mifare Classic 1K", ...) - unlike
             # formatLabel, this does not collapse every Mifare Classic tag to "Extended".
@@ -1661,9 +1669,9 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
         # choice is already scoped per carrier. A write always either produces the exact
         # format requested for the carrier present, or fails outright with ok:false and an
         # error the frontend surfaces - never a silent substitution the user didn't ask for.
-        payload = TagFormats.getTagFormat(
-            TagFormats.TAG_FORMAT_OCTOSCALE_EXTENDED
-        )["buildPayload"](spoolModel)
+        payload = TagFormats.getTagFormat(TagFormats.TAG_FORMAT_OCTOSCALE_EXTENDED)[
+            "buildPayload"
+        ](spoolModel)
 
         nfcvFormatSetting = self._settings.get(
             [SettingsKeys.SETTINGS_KEY_OCTOSCALE_NFCV_FORMAT]
@@ -1713,9 +1721,12 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
             tagFormat = TagFormats.getTagFormat(
                 TagFormats.NTAG_FORMAT_SETTING_TO_TAG_FORMAT[ntagFormatSetting]
             )
-            if tagFormat["buildPayload"] is not TagFormats.getTagFormat(
-                TagFormats.TAG_FORMAT_OCTOSCALE_EXTENDED
-            )["buildPayload"]:
+            if (
+                tagFormat["buildPayload"]
+                is not TagFormats.getTagFormat(
+                    TagFormats.TAG_FORMAT_OCTOSCALE_EXTENDED
+                )["buildPayload"]
+            ):
                 # Merge in this format's extra fields (e.g. TigerTag's resolved numeric
                 # ids) onto the common payload already built above - additive only, never
                 # replaces the base fields every format shares.
@@ -1752,7 +1763,9 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
                 self._describeOctoScaleWriteRefusal(response, errorMessage)
             )
 
-        return flask.jsonify({"success": True, "databaseId": databaseId, "pending": True})
+        return flask.jsonify(
+            {"success": True, "databaseId": databaseId, "pending": True}
+        )
 
     # The firmware answers 409 for two very different situations, both with a structured
     # JSON body: it refuses to overwrite a tag it recognized as foreign ("foreign tag",
@@ -2132,9 +2145,7 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
             filament, readResult, scanResult, parseDiagnostics
         )
 
-    def _buildReadTagResponse(
-        self, filament, readResult, scanResult, parseDiagnostics
-    ):
+    def _buildReadTagResponse(self, filament, readResult, scanResult, parseDiagnostics):
         """The success payload for a recognized tag - shared by the NTAG and Classic paths.
 
         Both branches must answer in exactly the same shape: the frontend has one code path
@@ -2156,7 +2167,10 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
         # the same "this tag already belongs to this spool" fact the write flow surfaces,
         # never something applyToSpoolItem should write back onto a spool.
         octoscaleExtendedFields = getattr(filament, "octoscaleExtendedFields", None)
-        if octoscaleExtendedFields and octoscaleExtendedFields.get("databaseId") is not None:
+        if (
+            octoscaleExtendedFields
+            and octoscaleExtendedFields.get("databaseId") is not None
+        ):
             diagnostics["tagDatabaseId"] = octoscaleExtendedFields["databaseId"]
 
         # A vendor tag carries no SpoolManager id, so an already-known spool can only be
@@ -2183,7 +2197,9 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
             + "'"
         )
 
-        fields = FilamentTagToSpool.genericFilamentToSpoolFields(filament, normalizedUid)
+        fields = FilamentTagToSpool.genericFilamentToSpoolFields(
+            filament, normalizedUid
+        )
         # Round-trip fields no vendor tag carries but OctoScale's own extended format
         # does (usedWeight, remainingWeight, cost, ...) - see
         # FilamentTagParsers._buildOctoscaleExtendedFields. genericFilamentToSpoolFields()
@@ -2405,7 +2421,10 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
         "tigerTagBrandId": ("vendor", "Vendor"),
         "tigerTagTypeId": (None, "Type"),  # always resolves - fixed to "Filament"
         "tigerTagDiameterId": ("diameter", "Diameter"),
-        "tigerTagMeasureUnitId": (None, "Weight unit"),  # always resolves - fixed to "g"
+        "tigerTagMeasureUnitId": (
+            None,
+            "Weight unit",
+        ),  # always resolves - fixed to "g"
     }
 
     @octoprint.plugin.BlueprintPlugin.route(
@@ -2429,7 +2448,10 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
         ](spoolModel)
 
         unresolvedFields = []
-        for payloadKey, (spoolField, label) in self._TIGERTAG_REQUIRED_PAYLOAD_KEYS.items():
+        for payloadKey, (
+            spoolField,
+            label,
+        ) in self._TIGERTAG_REQUIRED_PAYLOAD_KEYS.items():
             if payload.get(payloadKey) is None:
                 unresolvedFields.append(
                     {
@@ -2459,7 +2481,9 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
     def getU1RfidStatus(self):
         manager = getattr(self, "_u1RfidManager", None)
         if manager is None:
-            return flask.jsonify({"supported": False, "chainMessage": "not initialized"})
+            return flask.jsonify(
+                {"supported": False, "chainMessage": "not initialized"}
+            )
         manager.evaluateDetectionChain()
         return flask.jsonify(manager.getStatus())
 
@@ -2470,7 +2494,9 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
     def testU1RfidConnection(self):
         manager = getattr(self, "_u1RfidManager", None)
         if manager is None:
-            return flask.jsonify({"ok": False, "message": "U1 RFID support not initialized"})
+            return flask.jsonify(
+                {"ok": False, "message": "U1 RFID support not initialized"}
+            )
         return flask.jsonify(manager.testConnection())
 
     # Last unknown tag UIDs per channel - feeds the "take over last U1 UID" button in the
@@ -3465,7 +3491,7 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
         jsonData = request.json if request.is_json else {}
         # set by the frontend only after the user confirmed replacing an existing database
         overwriteExisting = (
-            self._getValueFromJSONOrNone("overwriteExisting", jsonData) == True
+            self._getValueFromJSONOrNone("overwriteExisting", jsonData) is True
         )
 
         # the settings travel through their own comparison dialog, so this route only
@@ -3491,17 +3517,13 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
         # What the old install holds, shown before anything is copied.
         legacyDataFolder = self._getLegacyDataFolder()
         if legacyDataFolder is None:
-            return flask.jsonify(
-                {"hasDatabase": False, "preview": None, "files": []}
-            )
+            return flask.jsonify({"hasDatabase": False, "preview": None, "files": []})
 
         databaseFile = os.path.join(
             legacyDataFolder, DatabaseManager.DATABASE_FILE_NAME
         )
         hasDatabase = os.path.isfile(databaseFile)
-        preview = (
-            self._readLegacyDatabasePreview(databaseFile) if hasDatabase else None
-        )
+        preview = self._readLegacyDatabasePreview(databaseFile) if hasDatabase else None
 
         return flask.jsonify(
             {
@@ -3512,7 +3534,9 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
         )
 
     #######################################################################################   LEGACY SETTINGS COMPARISON
-    @octoprint.plugin.BlueprintPlugin.route("/legacySettingsComparison", methods=["GET"])
+    @octoprint.plugin.BlueprintPlugin.route(
+        "/legacySettingsComparison", methods=["GET"]
+    )
     @no_firstrun_access
     def legacySettingsComparison(self):
         rows = self._getLegacySettingsComparison()

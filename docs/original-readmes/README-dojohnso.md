@@ -170,4 +170,3 @@ _
 _
 
     docker-compose run postgres bash
-

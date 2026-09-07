@@ -152,7 +152,10 @@ class FilamentDatabaseService:
             and len(value_range) == 2
             and all(isinstance(item, (int, float)) for item in value_range)
         ):
-            return (int(round((value_range[0] + value_range[1]) / 2.0)), list(value_range))
+            return (
+                int(round((value_range[0] + value_range[1]) / 2.0)),
+                list(value_range),
+            )
         return (None, None)
 
     @staticmethod
@@ -160,7 +163,9 @@ class FilamentDatabaseService:
         if not isinstance(value, str):
             return None
         value = value.strip().lstrip("#")
-        if len(value) == 6 and all(character in "0123456789abcdefABCDEF" for character in value):
+        if len(value) == 6 and all(
+            character in "0123456789abcdefABCDEF" for character in value
+        ):
             return "#" + value.lower()
         return None
 
@@ -206,7 +211,19 @@ class FilamentDatabaseService:
     def _infer_finish(cls, name):
         if not isinstance(name, str):
             return None
-        for term in ("matte", "matt", "silk", "glossy", "gloss", "satin", "metallic", "metal", "sparkle", "marble", "glow"):
+        for term in (
+            "matte",
+            "matt",
+            "silk",
+            "glossy",
+            "gloss",
+            "satin",
+            "metallic",
+            "metal",
+            "sparkle",
+            "marble",
+            "glow",
+        ):
             if re.search(r"\b" + re.escape(term) + r"\b", name, re.IGNORECASE):
                 return cls._normalize_finish(term)
         return None
@@ -216,7 +233,9 @@ class FilamentDatabaseService:
         if not isinstance(name, str) or not isinstance(material, str):
             return None
         candidate = name.strip()
-        candidate = re.sub(r"\b" + re.escape(material) + r"\b", " ", candidate, flags=re.IGNORECASE)
+        candidate = re.sub(
+            r"\b" + re.escape(material) + r"\b", " ", candidate, flags=re.IGNORECASE
+        )
         candidate = re.sub(
             r"\b(?:matte|matt|silk|glossy|gloss|satin|metallic|metal|sparkle|marble|glow|chameleon|filament)\b",
             " ",
@@ -254,7 +273,10 @@ class FilamentDatabaseService:
             manufacturer = record.get("manufacturer")
             material = record.get("material")
             name = record.get("name")
-            if not all(isinstance(value, str) and value.strip() for value in (manufacturer, material, name)):
+            if not all(
+                isinstance(value, str) and value.strip()
+                for value in (manufacturer, material, name)
+            ):
                 continue
             extruder_temp, extruder_temp_range = self._normalize_temperature(
                 record.get("extruder_temp"), record.get("extruder_temp_range")
@@ -267,9 +289,13 @@ class FilamentDatabaseService:
             )
             color_hex = colors[0] if len(colors) == 1 else None
             color_hexes = colors if len(colors) > 1 else None
-            finish = self._normalize_finish(record.get("finish")) or self._infer_finish(name)
+            finish = self._normalize_finish(record.get("finish")) or self._infer_finish(
+                name
+            )
             color_name = self._infer_color_name(name, material) if colors else None
-            is_transparent, is_untinted_transparent = self._infer_transparency(name, material)
+            is_transparent, is_untinted_transparent = self._infer_transparency(
+                name, material
+            )
             tds_url = self._normalize_url(record.get("tds_url"))
             sds_url = self._normalize_url(record.get("sds_url"))
             key = (manufacturer.strip(), material.strip(), name.strip())
@@ -309,26 +335,44 @@ class FilamentDatabaseService:
                 for entry in parsed_temperatures
             }
             ambiguous = len(temperature_values) > 1
-            colors = {entry["color_hex"] for entry in parsed_temperatures if entry["color_hex"]}
+            colors = {
+                entry["color_hex"]
+                for entry in parsed_temperatures
+                if entry["color_hex"]
+            }
             color_sets = {
                 tuple(entry["color_hexes"])
                 for entry in parsed_temperatures
                 if entry["color_hexes"]
             }
-            color_names = {entry["color_name"] for entry in parsed_temperatures if entry["color_name"]}
+            color_names = {
+                entry["color_name"]
+                for entry in parsed_temperatures
+                if entry["color_name"]
+            }
             transparencies = {entry["is_transparent"] for entry in parsed_temperatures}
             untinted_transparencies = {
                 entry["is_untinted_transparent"] for entry in parsed_temperatures
             }
-            finishes = {entry["finish"] for entry in parsed_temperatures if entry["finish"]}
-            tds_urls = {entry["tds_url"] for entry in parsed_temperatures if entry["tds_url"]}
-            sds_urls = {entry["sds_url"] for entry in parsed_temperatures if entry["sds_url"]}
+            finishes = {
+                entry["finish"] for entry in parsed_temperatures if entry["finish"]
+            }
+            tds_urls = {
+                entry["tds_url"] for entry in parsed_temperatures if entry["tds_url"]
+            }
+            sds_urls = {
+                entry["sds_url"] for entry in parsed_temperatures if entry["sds_url"]
+            }
             product = {
                 "name": name,
                 "ambiguous": ambiguous,
                 "color_hex": next(iter(colors)) if len(colors) == 1 else None,
-                "color_hexes": list(next(iter(color_sets))) if len(color_sets) == 1 else None,
-                "color_name": next(iter(color_names)) if len(color_names) == 1 else None,
+                "color_hexes": (
+                    list(next(iter(color_sets))) if len(color_sets) == 1 else None
+                ),
+                "color_name": (
+                    next(iter(color_names)) if len(color_names) == 1 else None
+                ),
                 "is_transparent": transparencies == {True},
                 "is_untinted_transparent": untinted_transparencies == {True},
                 "finish": next(iter(finishes)) if len(finishes) == 1 else None,
@@ -361,9 +405,9 @@ class FilamentDatabaseService:
             "last_fetch": cache.get("fetched_at") if cache else None,
             "vendor_count": len(data),
             "material_count": material_count,
-            "next_refresh_at": self._next_refresh_at(cache, ttl_days).isoformat()
-            if cache
-            else None,
+            "next_refresh_at": (
+                self._next_refresh_at(cache, ttl_days).isoformat() if cache else None
+            ),
         }
         if error:
             result["error"] = error
@@ -406,7 +450,9 @@ class FilamentDatabaseService:
                 return (cache, self._status(cache, "fresh", ttl_days=ttl_days))
             except (requests.RequestException, ValueError, UnicodeDecodeError) as error:
                 last_error = error
-                if attempt >= self.MAX_FETCH_ATTEMPTS or not self._is_retryable_error(error):
+                if attempt >= self.MAX_FETCH_ATTEMPTS or not self._is_retryable_error(
+                    error
+                ):
                     break
                 delay_seconds = self._retry_delay_seconds(attempt)
                 self._logger.info(
@@ -423,7 +469,10 @@ class FilamentDatabaseService:
                 cache,
                 self._status(cache, "stale", ttl_days=ttl_days, error=str(last_error)),
             )
-        return (None, self._status(None, "error", ttl_days=ttl_days, error=str(last_error)))
+        return (
+            None,
+            self._status(None, "error", ttl_days=ttl_days, error=str(last_error)),
+        )
 
     def vendors(self, ttl_days=1):
         cache, status = self.ensure_index(ttl_days)

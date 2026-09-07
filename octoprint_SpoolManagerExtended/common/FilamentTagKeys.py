@@ -209,9 +209,7 @@ def deriveSnapmakerKeys(uid, keyType="a"):
         info = ("key_%s_%d" % (keyType, sector)).encode("utf-8")
         # The trailing 0x01 is HKDF's counter block, and Crypto1 takes the first 6 of the
         # 32 bytes produced.
-        keys.append(
-            hmac.new(prk, info + bytes([1]), hashlib.sha256).digest()[:6].hex()
-        )
+        keys.append(hmac.new(prk, info + bytes([1]), hashlib.sha256).digest()[:6].hex())
     return keys
 
 

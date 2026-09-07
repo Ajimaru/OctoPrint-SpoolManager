@@ -65,9 +65,12 @@ def genericFilamentToSpoolFields(filament, uid=None):
     # base material - SpoolManager has a dedicated field for that, so they do not get
     # appended to the material name.
     if filament.modifiers:
-        fields["materialCharacteristic"] = " ".join(
-            [str(modifier) for modifier in filament.modifiers if modifier]
-        ).strip() or None
+        fields["materialCharacteristic"] = (
+            " ".join(
+                [str(modifier) for modifier in filament.modifiers if modifier]
+            ).strip()
+            or None
+        )
 
     colorCode = _colorCode(filament.colors)
     if colorCode:

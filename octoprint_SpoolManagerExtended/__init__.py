@@ -26,21 +26,20 @@ from octoprint.util.version import (
 
 from octoprint_SpoolManagerExtended.api import Transformer
 from octoprint_SpoolManagerExtended.api.SpoolManagerAPI import SpoolManagerAPI
-from octoprint_SpoolManagerExtended.common import StringUtils
+from octoprint_SpoolManagerExtended.common import FilamentTagConstants, StringUtils
 from octoprint_SpoolManagerExtended.common.EventBusKeys import EventBusKeys
 from octoprint_SpoolManagerExtended.common.FilamentDatabaseService import (
     FilamentDatabaseService,
 )
-from octoprint_SpoolManagerExtended.common import FilamentTagConstants
-from octoprint_SpoolManagerExtended.common.TigerTagIdService import TigerTagIdService
 from octoprint_SpoolManagerExtended.common.SettingsKeys import SettingsKeys
+from octoprint_SpoolManagerExtended.common.TigerTagIdService import TigerTagIdService
 from octoprint_SpoolManagerExtended.DatabaseManager import (
     DATABASE_FILE_NAME,
     DatabaseManager,
 )
 from octoprint_SpoolManagerExtended.MqttManager import MqttManager
-from octoprint_SpoolManagerExtended.U1RfidManager import U1RfidManager
 from octoprint_SpoolManagerExtended.newodometer import NewFilamentOdometer
+from octoprint_SpoolManagerExtended.U1RfidManager import U1RfidManager
 
 # sentinel distinguishing "never announced" from "known to be empty (None)" in
 # _lastAnnouncedSpoolIds, so the very first deselect of a tool is not swallowed
@@ -489,7 +488,9 @@ class SpoolmanagerPlugin(
                 )
         except Exception as e:
             self._logger.exception("Legacy settings migration failed")
-            return failure("Data was copied, but the settings could not be migrated: " + str(e))
+            return failure(
+                "Data was copied, but the settings could not be migrated: " + str(e)
+            )
 
         # Written whenever something was actually migrated, not only when files were
         # replaced: migrating into an empty install overwrites nothing, but it still has
@@ -661,7 +662,8 @@ class SpoolmanagerPlugin(
             }
 
         self._logger.info(
-            "Applied %s setting(s) from 'plugins.%s'" % (len(selected), LEGACY_IDENTIFIER)
+            "Applied %s setting(s) from 'plugins.%s'"
+            % (len(selected), LEGACY_IDENTIFIER)
         )
         return {"success": True, "errorMessage": None, "appliedCount": len(selected)}
 
@@ -729,7 +731,8 @@ class SpoolmanagerPlugin(
             self._logger.exception("Restoring the previous settings failed")
             return {
                 "success": False,
-                "errorMessage": "Files were restored, but the settings were not: " + str(e),
+                "errorMessage": "Files were restored, but the settings were not: "
+                + str(e),
                 "restoredFiles": restoredFiles,
                 "restoredSettings": restoredSettings,
             }
@@ -908,7 +911,9 @@ class SpoolmanagerPlugin(
                 "colorName": spoolModel.colorName,
                 "remainingWeight": spoolModel.remainingWeight,
             }
-            self._sendPayload2EventBus(EventBusKeys.EVENT_BUS_SPOOL_SELECTED, eventPayload)
+            self._sendPayload2EventBus(
+                EventBusKeys.EVENT_BUS_SPOOL_SELECTED, eventPayload
+            )
         else:
             eventPayload = {"toolId": toolIndex, "databaseId": None}
             self._sendPayload2EventBus(
@@ -2158,8 +2163,18 @@ class SpoolmanagerPlugin(
         # otherwise OctoPrint derives the filename from the identifier and finds nothing.
         return [
             dict(type="tab", name="Spools", template="SpoolManager_tab.jinja2"),
-            dict(type="settings", custom_bindings=True, name="Spool Manager Extended", template="SpoolManager_settings.jinja2"),
-            dict(type="sidebar", name="Spools", icon="life-ring", template="SpoolManager_sidebar.jinja2"),
+            dict(
+                type="settings",
+                custom_bindings=True,
+                name="Spool Manager Extended",
+                template="SpoolManager_settings.jinja2",
+            ),
+            dict(
+                type="sidebar",
+                name="Spools",
+                icon="life-ring",
+                template="SpoolManager_sidebar.jinja2",
+            ),
         ]
 
     ##~~ AssetPlugin mixin

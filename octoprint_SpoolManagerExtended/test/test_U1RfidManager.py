@@ -44,8 +44,12 @@ def _loadModule(dottedName, relativePath):
 
 
 _installNamespacePackages()
-_loadModule("octoprint_SpoolManagerExtended.common.SettingsKeys", "common/SettingsKeys.py")
-U1RfidManager = _loadModule("octoprint_SpoolManagerExtended.U1RfidManager", "U1RfidManager.py")
+_loadModule(
+    "octoprint_SpoolManagerExtended.common.SettingsKeys", "common/SettingsKeys.py"
+)
+U1RfidManager = _loadModule(
+    "octoprint_SpoolManagerExtended.U1RfidManager", "U1RfidManager.py"
+)
 
 normalizeCardUid = U1RfidManager.normalizeCardUid
 extractTagMetadata = U1RfidManager.extractTagMetadata
@@ -447,7 +451,9 @@ class TestChannelHandling(unittest.TestCase):
 
         self.assertEqual(plugin.selectSpoolForToolCalls, [(2, 42)])
         self.assertEqual(plugin._databaseManager.lookedUpRfidTagKeys, ["C3D4"])
-        pushed = [m for m in plugin.sentMessages if m["action"] == "u1RfidSpoolSelected"]
+        pushed = [
+            m for m in plugin.sentMessages if m["action"] == "u1RfidSpoolSelected"
+        ]
         self.assertEqual(len(pushed), 1)
         self.assertEqual(pushed[0]["channel"], 2)
         self.assertEqual(pushed[0]["databaseId"], 42)
@@ -515,9 +521,7 @@ class TestChannelHandling(unittest.TestCase):
         manager._handleChannel(0, {"CARD_UID": [161, 178, 195, 212]})
         manager._handleChannel(2, {"CARD_UID": [1, 2, 3, 4]})
 
-        self.assertEqual(
-            sorted(plugin.selectSpoolForToolCalls), [(0, 42), (2, 43)]
-        )
+        self.assertEqual(sorted(plugin.selectSpoolForToolCalls), [(0, 42), (2, 43)])
 
     def test_knownUidClearsAnyPriorUnknownEntryForThatChannel(self):
         # teaching a UID (assigning its rfidTagKey to a spool) must make the "unknown
@@ -583,9 +587,7 @@ class TestHandleMessage(unittest.TestCase):
         message = {
             "result": {
                 "status": {
-                    "filament_detect": {
-                        "info": [{"CARD_UID": [161, 178, 195, 212]}]
-                    }
+                    "filament_detect": {"info": [{"CARD_UID": [161, 178, 195, 212]}]}
                 }
             }
         }

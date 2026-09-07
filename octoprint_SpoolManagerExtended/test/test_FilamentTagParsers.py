@@ -132,8 +132,20 @@ class TestBinaryHelpers(unittest.TestCase):
 class TestGenericFilament(unittest.TestCase):
     def test_cf_modifier_folds_into_type(self):
         filament = FilamentTagModel.GenericFilament(
-            "test", "id", "Vendor", "PLA", ["CF"], [0xFF112233],
-            1.75, 1000, 190, 230, 60, 55, 8, "2024-01-01",
+            "test",
+            "id",
+            "Vendor",
+            "PLA",
+            ["CF"],
+            [0xFF112233],
+            1.75,
+            1000,
+            190,
+            230,
+            60,
+            55,
+            8,
+            "2024-01-01",
         )
         self.assertEqual("PLA-CF", filament.type)
         self.assertEqual([], filament.modifiers)
@@ -143,16 +155,40 @@ class TestGenericFilament(unittest.TestCase):
         # Upstream raises ValueError here. A Bambu "PLA Basic" would lose its color and
         # weight over a name we don't happen to know - so it is flagged, not dropped.
         filament = FilamentTagModel.GenericFilament(
-            "test", "id", "Bambu", "PLA Basic", [], [0xFF112233],
-            1.75, 1000, 190, 230, 60, 55, 8, "2024-01-01",
+            "test",
+            "id",
+            "Bambu",
+            "PLA Basic",
+            [],
+            [0xFF112233],
+            1.75,
+            1000,
+            190,
+            230,
+            60,
+            55,
+            8,
+            "2024-01-01",
         )
         self.assertEqual("PLA Basic", filament.type)
         self.assertFalse(filament.typeRecognized)
 
     def test_rgba_conversion_moves_alpha_to_the_end(self):
         filament = FilamentTagModel.GenericFilament(
-            "test", "id", "Vendor", "PLA", [], [0xFF112233],
-            1.75, 1000, 190, 230, 60, 55, 8, "2024-01-01",
+            "test",
+            "id",
+            "Vendor",
+            "PLA",
+            [],
+            [0xFF112233],
+            1.75,
+            1000,
+            190,
+            230,
+            60,
+            55,
+            8,
+            "2024-01-01",
         )
         self.assertEqual(0x112233FF, filament.rgba)
 
@@ -171,9 +207,7 @@ class TestTagTypeMapping(unittest.TestCase):
         self.assertEqual(
             TagType.MIFARE_ULTRALIGHT, FilamentTagModel.tagTypeFromOctoScale("ntag")
         )
-        self.assertEqual(
-            TagType.NFCV, FilamentTagModel.tagTypeFromOctoScale("nfcv")
-        )
+        self.assertEqual(TagType.NFCV, FilamentTagModel.tagTypeFromOctoScale("nfcv"))
         # An unknown string must not masquerade as a type
         self.assertEqual(TagType.UNKNOWN, FilamentTagModel.tagTypeFromOctoScale(None))
 
@@ -191,9 +225,7 @@ class TestNdefParsing(unittest.TestCase):
         message = buildUriRecord(0x04, "tag.spoolease.io/S1?M=PLA")
         errorCode, records = FilamentTagNdef.parseNdefRecords(buildNtagDump(message))
         self.assertEqual(FilamentTagNdef.NDEF_OK, errorCode)
-        self.assertEqual(
-            "https://tag.spoolease.io/S1?M=PLA", records[0].uriText()
-        )
+        self.assertEqual("https://tag.spoolease.io/S1?M=PLA", records[0].uriText())
 
     def test_tag_without_capability_container_is_rejected(self):
         self.assertEqual(
@@ -246,16 +278,12 @@ class TestOpenSpoolParser(unittest.TestCase):
         # hex digits instead of the first six, turning white ("FFFFFF00") into yellow
         # ("#FFFF00") - caught live during a test run against real hardware.
         parser = FilamentTagParsers.OpenSpoolTagParser()
-        filament = parser.parseTag(
-            ntagScan(), self.buildTag(color_hex="FFFFFF00")
-        )
+        filament = parser.parseTag(ntagScan(), self.buildTag(color_hex="FFFFFF00"))
         self.assertEqual([0xFFFFFFFF], filament.colors)
 
     def test_eight_digit_color_hex_with_hash_prefix(self):
         parser = FilamentTagParsers.OpenSpoolTagParser()
-        filament = parser.parseTag(
-            ntagScan(), self.buildTag(color_hex="#AABBCC99")
-        )
+        filament = parser.parseTag(ntagScan(), self.buildTag(color_hex="#AABBCC99"))
         self.assertEqual([0xFFAABBCC], filament.colors)
 
     def test_defaults_apply_when_fields_are_absent(self):
@@ -334,9 +362,7 @@ class TestSpoolEaseParser(unittest.TestCase):
 
     def test_material_alias_is_resolved(self):
         parser = FilamentTagParsers.SpoolEaseTagParser()
-        filament = parser.parseTag(
-            ntagScan(), self.buildTag("M=PLA-S&NN=200&NX=220")
-        )
+        filament = parser.parseTag(ntagScan(), self.buildTag("M=PLA-S&NN=200&NX=220"))
         self.assertEqual("PLA", filament.type)
 
     def test_multi_color_field_is_split(self):
@@ -382,7 +408,7 @@ def buildAnycubicTag(
 ):
     """Anycubic's binary layout, built from the offsets the parser reads."""
     image = bytearray(b"\x00" * 0x80)
-    image[0x10:0x14] = b"\x7B\x00\x65\x00"  # format marker
+    image[0x10:0x14] = b"\x7b\x00\x65\x00"  # format marker
     image[0x14 : 0x14 + len(sku)] = sku.encode("ascii")
     image[0x28 : 0x28 + len(brand)] = brand.encode("ascii")
     image[0x3C : 0x3C + len(filamentType)] = filamentType.encode("ascii")
@@ -412,7 +438,7 @@ def buildElegooTag(
     """Elegoo's binary layout, which lives at a fixed 0x40 offset into the page image."""
     image = bytearray(b"\x00" * 0x80)
     block = bytearray(b"\x00" * 0x29)
-    block[0x01:0x05] = b"\xEE\xEE\xEE\xEE"  # format marker
+    block[0x01:0x05] = b"\xee\xee\xee\xee"  # format marker
     block[0x0C] = materialId
     block[0x0D] = modifierId
     red, green, blue, alpha = rgba
@@ -457,9 +483,7 @@ class TestAnycubicParser(unittest.TestCase):
 
     def test_cf_suffix_folds_into_the_type_name(self):
         parser = FilamentTagParsers.AnycubicTagParser()
-        filament = parser.parseTag(
-            ntagScan(), buildAnycubicTag(filamentType="PETG-CF")
-        )
+        filament = parser.parseTag(ntagScan(), buildAnycubicTag(filamentType="PETG-CF"))
         self.assertEqual("PETG-CF", filament.type)
         self.assertTrue(filament.typeRecognized)
 
@@ -507,7 +531,9 @@ class TestElegooParser(unittest.TestCase):
     def test_unknown_material_pair_is_rejected(self):
         parser = FilamentTagParsers.ElegooTagParser()
         self.assertIsNone(
-            parser.parseTag(ntagScan(), buildElegooTag(materialId=0xFE, modifierId=0xFE))
+            parser.parseTag(
+                ntagScan(), buildElegooTag(materialId=0xFE, modifierId=0xFE)
+            )
         )
 
     def test_missing_magic_is_rejected(self):
@@ -702,14 +728,26 @@ class TestParserRegistry(unittest.TestCase):
 
 
 def _snapmakerImage(
-    mainType=1, subType=3, alphaByte=0x00, colorNums=1, diameter=175,
-    weight=1000, dryTemp=55, dryHours=10, hotendMax=230, hotendMin=200, bedTemp=60,
-    vendor="Snapmaker", producer="Polymaker", mfgDate="20251214"
+    mainType=1,
+    subType=3,
+    alphaByte=0x00,
+    colorNums=1,
+    diameter=175,
+    weight=1000,
+    dryTemp=55,
+    dryHours=10,
+    hotendMax=230,
+    hotendMin=200,
+    bedTemp=60,
+    vendor="Snapmaker",
+    producer="Polymaker",
+    mfgDate="20251214",
 ):
     """A synthetic Snapmaker 1K image, built from named offsets rather than a captured dump.
 
     Layout per paxx12-snapmaker-u1/spool-link-apps, SnapmakerFormat.kt.
     """
+
     def le16(value):
         return bytes([value & 0xFF, (value >> 8) & 0xFF])
 
@@ -728,9 +766,9 @@ def _snapmakerImage(
     image[150:152] = le16(hotendMin)
     image[154:156] = le16(bedTemp)
     if vendor:
-        image[16:16 + len(vendor)] = vendor.encode("ascii")
+        image[16 : 16 + len(vendor)] = vendor.encode("ascii")
     if producer:
-        image[32:32 + len(producer)] = producer.encode("ascii")
+        image[32 : 32 + len(producer)] = producer.encode("ascii")
     if mfgDate:
         image[160:168] = mfgDate.encode("ascii")
     return bytes(image)
@@ -829,9 +867,15 @@ class TestQidiTagParser(unittest.TestCase):
         self.assertIsNone(self.parser.parseTag(self.scan, bytes(1024)))
 
     def test_rejects_implausible_temperatures(self):
-        self.assertIsNone(self.parser.parseTag(self.scan, _qidiImage(temps=(20, 30, 60))))
-        self.assertIsNone(self.parser.parseTag(self.scan, _qidiImage(temps=(250, 200, 60))))
-        self.assertIsNone(self.parser.parseTag(self.scan, _qidiImage(temps=(210, 230, 250))))
+        self.assertIsNone(
+            self.parser.parseTag(self.scan, _qidiImage(temps=(20, 30, 60)))
+        )
+        self.assertIsNone(
+            self.parser.parseTag(self.scan, _qidiImage(temps=(250, 200, 60)))
+        )
+        self.assertIsNone(
+            self.parser.parseTag(self.scan, _qidiImage(temps=(210, 230, 250)))
+        )
 
     def test_rejects_truncated_input(self):
         self.assertIsNone(self.parser.parseTag(self.scan, bytes(32)))
@@ -871,9 +915,20 @@ class TestSnapmakerRealTagFields(unittest.TestCase):
 
 
 def _tigerTagImage(
-    magic=0x5BF59264, product=0xFFFFFFFF, material=18775, diameter=56,
-    measure=1000, unit=21, nozzleMin=190, nozzleMax=230, bedMin=50, bedMax=60,
-    dryTemp=55, dryTime=6, rgba=(0xE7, 0x2F, 0x1D, 0xFF), pagePrefix=True
+    magic=0x5BF59264,
+    product=0xFFFFFFFF,
+    material=18775,
+    diameter=56,
+    measure=1000,
+    unit=21,
+    nozzleMin=190,
+    nozzleMax=230,
+    bedMin=50,
+    bedMax=60,
+    dryTemp=55,
+    dryTime=6,
+    rgba=(0xE7, 0x2F, 0x1D, 0xFF),
+    pagePrefix=True,
 ):
     """A synthetic TigerTag, built from the layout in TigerTag-SDK-Python's tag.py.
 
@@ -920,17 +975,13 @@ class TestTigerTagParser(unittest.TestCase):
         # into the single bed_temp_c, and a write-then-read round trip silently flattened
         # a spool's minBedTemperature/maxBedTemperature/bedTemperature to the same number
         # (reported by a user comparing dev271's write against the read-back diff).
-        filament = self.parser.parseTag(
-            self.scan, _tigerTagImage(bedMin=50, bedMax=70)
-        )
+        filament = self.parser.parseTag(self.scan, _tigerTagImage(bedMin=50, bedMax=70))
         self.assertEqual(70, filament.bed_temp_c)  # unchanged: max wins as the "target"
         self.assertEqual(50, filament.bed_min_temp_c)
         self.assertEqual(70, filament.bed_max_temp_c)
 
     def test_bed_min_equal_to_max_still_reports_both(self):
-        filament = self.parser.parseTag(
-            self.scan, _tigerTagImage(bedMin=55, bedMax=55)
-        )
+        filament = self.parser.parseTag(self.scan, _tigerTagImage(bedMin=55, bedMax=55))
         self.assertEqual(55, filament.bed_min_temp_c)
         self.assertEqual(55, filament.bed_max_temp_c)
 
@@ -953,7 +1004,9 @@ class TestTigerTagParser(unittest.TestCase):
     def test_length_unit_leaves_the_weight_unset(self):
         # A length cannot be converted to a weight without a density, so it must stay unset
         # rather than be reported as if it were grams.
-        inMetres = self.parser.parseTag(self.scan, _tigerTagImage(measure=330, unit=149))
+        inMetres = self.parser.parseTag(
+            self.scan, _tigerTagImage(measure=330, unit=149)
+        )
         self.assertIsNone(inMetres.weight_grams)
 
     def test_rejects_foreign_and_blank_tags(self):
@@ -986,9 +1039,17 @@ FilamentTagKeys = _loadModule("FilamentTagKeys")
 
 
 def _bambuImage(
-    materialId=b"GFA50   ", filamentType=b"PLA", detailedType=b"PLA Basic",
-    rgba=(0xF4, 0xC0, 0x32, 0xFF), weight=1000, diameter=1.75,
-    dryTemp=55, dryHours=8, bedTemp=60, hotendMax=230, hotendMin=190
+    materialId=b"GFA50   ",
+    filamentType=b"PLA",
+    detailedType=b"PLA Basic",
+    rgba=(0xF4, 0xC0, 0x32, 0xFF),
+    weight=1000,
+    diameter=1.75,
+    dryTemp=55,
+    dryHours=8,
+    bedTemp=60,
+    hotendMax=230,
+    hotendMin=190,
 ):
     """A synthetic Bambu 1K image, per the layout in Bambu-Research-Group/RFID-Tag-Guide."""
     image = bytearray(1024)
@@ -1329,9 +1390,7 @@ class TestOctoScaleExtendedTagParser(unittest.TestCase):
         # offsetTemperature does not surface on GenericFilament directly, so this is
         # exercised indirectly: a wrong (unsigned) read would not raise, it would just be
         # silently wrong, which is exactly why FilamentTagBinary.extract_int8 exists.
-        self.assertEqual(
-            -2, FilamentTagBinary.extract_int8(data, 9 * 16 + 7)
-        )
+        self.assertEqual(-2, FilamentTagBinary.extract_int8(data, 9 * 16 + 7))
 
     def test_strings_after_empty_slots_are_not_dropped(self):
         # batchNumber and finish are empty in the fixture; purchasedFrom and displayName
@@ -1452,7 +1511,9 @@ def _ntagExtendedV2Image(
 class TestOctoScaleExtendedNtagTagParser(unittest.TestCase):
     def setUp(self):
         self.parser = FilamentTagParsers.OctoScaleExtendedNtagTagParser()
-        self.scan = ScanResult(TagType.MIFARE_ULTRALIGHT, bytes.fromhex("045330AC3A0289"))
+        self.scan = ScanResult(
+            TagType.MIFARE_ULTRALIGHT, bytes.fromhex("045330AC3A0289")
+        )
 
     def test_parses_the_real_dump_with_every_verified_field(self):
         # Every value here was independently cross-checked against the live /nfcprobe
@@ -1508,7 +1569,9 @@ class TestOctoScaleExtendedNtagTagParser(unittest.TestCase):
         self.assertEqual("owlsat", filament.manufacturer)
         self.assertEqual(0, _ntagExtendedRealDump()[4 * 4 + 3])
 
-    def test_our_own_tag_is_claimed_before_openspool_despite_leftover_ndef_garbage(self):
+    def test_our_own_tag_is_claimed_before_openspool_despite_leftover_ndef_garbage(
+        self,
+    ):
         # The real dump carries leftover openSpool NDEF JSON past the commit marker (an
         # extended write does not erase the tag first). If registry order were wrong, the
         # openSpool parser would misclaim this tag instead.
@@ -1518,9 +1581,7 @@ class TestOctoScaleExtendedNtagTagParser(unittest.TestCase):
         self.assertIsNotNone(filament)
         self.assertEqual("ntagExtended", diagnostics["parserId"])
         openSpoolParser = FilamentTagParsers.OpenSpoolTagParser()
-        self.assertIsNone(
-            openSpoolParser.parseTag(self.scan, _ntagExtendedRealDump())
-        )
+        self.assertIsNone(openSpoolParser.parseTag(self.scan, _ntagExtendedRealDump()))
 
     def test_marker_position_is_scanned_not_hardcoded(self):
         # Two fixtures with different string lengths must both parse correctly - a parser
@@ -1667,8 +1728,15 @@ class TestOctoScaleExtendedNfcvTagParser(unittest.TestCase):
         filament = self.parser.parseTag(self.scan, _nfcvExtendedImage())
         ext = filament.octoscaleExtendedFields
         for missingField in (
-            "remainingWeight", "cost", "code", "totalLength", "usedLength",
-            "batchNumber", "purchasedFrom", "finish", "displayName",
+            "remainingWeight",
+            "cost",
+            "code",
+            "totalLength",
+            "usedLength",
+            "batchNumber",
+            "purchasedFrom",
+            "finish",
+            "displayName",
         ):
             self.assertNotIn(missingField, ext)
 
@@ -1704,7 +1772,8 @@ def _spool110RealReadBytes():
     """The exact hex payload /nfcreadstart returned for a real tag (UID 40CA8A50, spool
     110, sectors [0..9]) - captured directly from the firmware, not synthesized. This is
     what caught the bug below: every earlier fixture in this file builds a full 1024-byte
-    image, which cannot reproduce how the firmware actually answers a sector-scoped read."""
+    image, which cannot reproduce how the firmware actually answers a sector-scoped read.
+    """
     return bytes.fromhex(
         "40ca8a5050880400000000000000000000000000000000000000000000000000"
         "00000000000000000000000000000000000000000000ff078069ffffffffffff"
@@ -1766,7 +1835,8 @@ class TestOctoScaleExtendedClassicSectorCoverage(unittest.TestCase):
 
         missing = {b for b in blocksRead if (b // 4) not in registeredSectors}
         self.assertEqual(
-            set(), missing,
+            set(),
+            missing,
             "registered sectors do not cover blocks: " + str(sorted(missing)),
         )
 
@@ -1780,7 +1850,9 @@ class TestOctoScaleExtendedClassicSectorCoverage(unittest.TestCase):
         self.assertEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], sorted(descriptor["sectors"]))
 
         raw = _spool110RealReadBytes()
-        self.assertEqual(640, len(raw))  # 10 sectors x 64 bytes, exactly what the log showed
+        self.assertEqual(
+            640, len(raw)
+        )  # 10 sectors x 64 bytes, exactly what the log showed
 
         scan = ScanResult(TagType.MIFARE_CLASSIC_1K, bytes.fromhex("40CA8A50"))
         filament, diagnostics = FilamentTagParsers.parseTagData(scan, raw)
@@ -1810,7 +1882,9 @@ class TestOctoScaleExtendedClassicSectorCoverage(unittest.TestCase):
         raw = _spool110RealReadBytes()
         shifted = raw[64:]  # drop sector 0's 64 bytes, simulating sectors=[1..9]
         scan = ScanResult(TagType.MIFARE_CLASSIC_1K, bytes.fromhex("40CA8A50"))
-        filament = FilamentTagParsers.OctoScaleExtendedTagParser().parseTag(scan, shifted)
+        filament = FilamentTagParsers.OctoScaleExtendedTagParser().parseTag(
+            scan, shifted
+        )
         self.assertIsNone(filament)
 
     def test_parses_when_only_the_registered_sectors_are_populated_and_padded(self):
@@ -1910,15 +1984,17 @@ class TestOctoscaleColorFlagsHelpers(unittest.TestCase):
     v3/v2 extended parsers, independent of any single carrier's byte layout."""
 
     def test_parses_all_flag_bits(self):
-        isTransparent, colorCount, isRainbow = FilamentTagParsers._octoscaleParseColorFlags(
-            0x01 | (3 << 1) | 0x08
+        isTransparent, colorCount, isRainbow = (
+            FilamentTagParsers._octoscaleParseColorFlags(0x01 | (3 << 1) | 0x08)
         )
         self.assertTrue(isTransparent)
         self.assertEqual(3, colorCount)
         self.assertTrue(isRainbow)
 
     def test_zero_flags_means_no_color_information(self):
-        isTransparent, colorCount, isRainbow = FilamentTagParsers._octoscaleParseColorFlags(0)
+        isTransparent, colorCount, isRainbow = (
+            FilamentTagParsers._octoscaleParseColorFlags(0)
+        )
         self.assertFalse(isTransparent)
         self.assertEqual(0, colorCount)
         self.assertFalse(isRainbow)
@@ -1944,11 +2020,15 @@ class TestOctoscaleColorFlagsHelpers(unittest.TestCase):
         self.assertEqual("transparent:#FF0000;#00FF00;#0000FF", composed)
 
     def test_compose_untinted_transparent_with_no_colors(self):
-        composed = FilamentTagParsers._octoscaleComposeColorString(None, [], True, False)
+        composed = FilamentTagParsers._octoscaleComposeColorString(
+            None, [], True, False
+        )
         self.assertEqual("transparent", composed)
 
     def test_compose_opaque_single_color_no_prefix(self):
-        composed = FilamentTagParsers._octoscaleComposeColorString(0xFFAABBCC, [], False, False)
+        composed = FilamentTagParsers._octoscaleComposeColorString(
+            0xFFAABBCC, [], False, False
+        )
         self.assertEqual("#AABBCC", composed)
 
     def test_compose_nothing_returns_none(self):
@@ -1972,9 +2052,7 @@ class TestOctoScaleExtendedClassicMultiColorV4(unittest.TestCase):
         )
         filament = self.parser.parseTag(self.scan, data)
         self.assertIsNotNone(filament)
-        self.assertEqual(
-            [0xFFFF0000, 0xFF00FF00, 0xFF0000FF], filament.colors
-        )
+        self.assertEqual([0xFFFF0000, 0xFF00FF00, 0xFF0000FF], filament.colors)
         self.assertEqual(
             "transparent:#FF0000;#00FF00;#0000FF",
             filament.octoscaleExtendedFields["color"],
@@ -1990,14 +2068,10 @@ class TestOctoScaleExtendedClassicMultiColorV4(unittest.TestCase):
         filament = self.parser.parseTag(self.scan, data)
         self.assertIsNotNone(filament)
         self.assertEqual([0xFF112233, 0xFF445566], filament.colors)
-        self.assertEqual(
-            "#112233;#445566", filament.octoscaleExtendedFields["color"]
-        )
+        self.assertEqual("#112233;#445566", filament.octoscaleExtendedFields["color"])
 
     def test_rainbow_flag_produces_rainbow_string_regardless_of_rgb_bytes(self):
-        data = _classicExtendedImage(
-            version=4, rgb=(0x11, 0x22, 0x33), colorFlags=0x08
-        )
+        data = _classicExtendedImage(version=4, rgb=(0x11, 0x22, 0x33), colorFlags=0x08)
         filament = self.parser.parseTag(self.scan, data)
         self.assertIsNotNone(filament)
         self.assertEqual("rainbow", filament.octoscaleExtendedFields["color"])
@@ -2030,7 +2104,9 @@ class TestOctoScaleExtendedClassicMultiColorV4(unittest.TestCase):
 class TestOctoScaleExtendedNtagMultiColorV2(unittest.TestCase):
     def setUp(self):
         self.parser = FilamentTagParsers.OctoScaleExtendedNtagTagParser()
-        self.scan = ScanResult(TagType.MIFARE_ULTRALIGHT, bytes.fromhex("045330AC3A0289"))
+        self.scan = ScanResult(
+            TagType.MIFARE_ULTRALIGHT, bytes.fromhex("045330AC3A0289")
+        )
 
     def test_three_transparent_colors_round_trip(self):
         data = _ntagExtendedV2Image(
@@ -2041,9 +2117,7 @@ class TestOctoScaleExtendedNtagMultiColorV2(unittest.TestCase):
         )
         filament = self.parser.parseTag(self.scan, data)
         self.assertIsNotNone(filament)
-        self.assertEqual(
-            [0xFFFF0000, 0xFF00FF00, 0xFF0000FF], filament.colors
-        )
+        self.assertEqual([0xFFFF0000, 0xFF00FF00, 0xFF0000FF], filament.colors)
         self.assertEqual(
             "transparent:#FF0000;#00FF00;#0000FF",
             filament.octoscaleExtendedFields["color"],
@@ -2054,7 +2128,10 @@ class TestOctoScaleExtendedNtagMultiColorV2(unittest.TestCase):
         # flags territory. A parser that still reads strings from page 19 on a v2 tag
         # would read color bytes as string-length-prefixed garbage.
         data = _ntagExtendedV2Image(
-            vendor="ShiftedVendor", material="PETG", color2Rgb=(9, 9, 9), colorFlags=(2 << 1)
+            vendor="ShiftedVendor",
+            material="PETG",
+            color2Rgb=(9, 9, 9),
+            colorFlags=(2 << 1),
         )
         filament = self.parser.parseTag(self.scan, data)
         self.assertIsNotNone(filament)
@@ -2103,9 +2180,7 @@ class TestOctoScaleExtendedNfcvMultiColorV3(unittest.TestCase):
         )
         filament = self.parser.parseTag(self.scan, data)
         self.assertIsNotNone(filament)
-        self.assertEqual(
-            [0xFFFF0000, 0xFF00FF00, 0xFF0000FF], filament.colors
-        )
+        self.assertEqual([0xFFFF0000, 0xFF00FF00, 0xFF0000FF], filament.colors)
         self.assertEqual(
             "transparent:#FF0000;#00FF00;#0000FF",
             filament.octoscaleExtendedFields["color"],

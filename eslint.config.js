@@ -83,22 +83,23 @@ const browserGlobals = {
     SPOOLMANAGER_UTILS: "writable",
     SPOOLMANAGER_DIALOGS: "writable",
     SPOOLMANAGER_COLOR_PICKER: "writable",
+    SPOOLMANAGER_U1RFID: "writable",
 
     // Constructors/helpers declared in one file and used from the others.
     // `no-redeclare` is configured with builtinGlobals:false so the declaring
     // file does not report a conflict against these entries.
-    ComponentFactory: "writable",
-    TableItemHelper: "writable",
+    SpoolManagerExtendedComponentFactory: "writable",
+    SpoolManagerExtendedTableItemHelper: "writable",
     SpoolItem: "writable",
-    SpoolManagerAPIClient: "writable",
-    SpoolManagerEditSpoolDialog: "writable",
+    SpoolManagerExtendedAPIClient: "writable",
+    SpoolManagerExtendedEditSpoolDialog: "writable",
     SpoolManagerAddSpoolWizard: "writable",
-    SpoolManagerImportDialog: "writable",
+    SpoolManagerExtendedImportDialog: "writable",
     SpoolManagerOctoScaleWeighing: "writable",
     SpoolManagerOctoScaleTagWriter: "writable",
-    SpoolSelectionTableComp: "writable",
-    DatabaseConnectionProblemDialog: "writable",
-    ResetSettingsUtilV3: "writable",
+    SpoolManagerExtendedSpoolSelectionTableComp: "writable",
+    SpoolManagerExtendedDatabaseConnectionProblemDialog: "writable",
+    SpoolManagerExtendedResetSettingsUtilV3: "writable",
 };
 
 module.exports = [

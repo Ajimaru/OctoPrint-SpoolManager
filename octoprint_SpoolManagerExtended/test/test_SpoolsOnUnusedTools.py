@@ -25,7 +25,6 @@ from octoprint_SpoolManagerExtended.common.SettingsKeys import SettingsKeys
 from octoprint_SpoolManagerExtended.DatabaseManager import MODELS, DatabaseManager
 from octoprint_SpoolManagerExtended.models.SpoolModel import SpoolModel
 
-
 ################################################################################################ fakes
 
 

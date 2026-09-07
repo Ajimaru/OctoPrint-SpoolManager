@@ -21,7 +21,9 @@ from octoprint_SpoolManagerExtended.DatabaseManager import (
     MODELS,
     DatabaseManager,
 )
-from octoprint_SpoolManagerExtended.models.PluginMetaDataModel import PluginMetaDataModel
+from octoprint_SpoolManagerExtended.models.PluginMetaDataModel import (
+    PluginMetaDataModel,
+)
 
 V12_COLUMNS = ("dryingTemperature", "dryingTime", "td")
 
@@ -106,7 +108,9 @@ class TestDatabaseSchemeV12(unittest.TestCase):
 
         self.databaseManager._upgradeFrom11To12()
 
-        spool = SpoolModel.select().where(SpoolModel.displayName == "Existing spool").get()
+        spool = (
+            SpoolModel.select().where(SpoolModel.displayName == "Existing spool").get()
+        )
         self.assertEqual("PLA", spool.material)
         # new columns default to NULL rather than 0 - "not set" must stay distinguishable
         # from "set to zero", which is exactly the distinction the tag mapping relies on
@@ -119,7 +123,9 @@ class TestDatabaseSchemeV12(unittest.TestCase):
 
         # td is REAL, unlike the two integer drying columns - a rounded 1.0 would be wrong.
         spool = SpoolModel.create(displayName="TD spool", td=1.75)
-        reloaded = SpoolModel.select().where(SpoolModel.databaseId == spool.databaseId).get()
+        reloaded = (
+            SpoolModel.select().where(SpoolModel.databaseId == spool.databaseId).get()
+        )
         self.assertAlmostEqual(1.75, reloaded.td)
 
 

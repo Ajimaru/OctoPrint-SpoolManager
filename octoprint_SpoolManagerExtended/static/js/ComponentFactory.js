@@ -14,7 +14,10 @@ function SpoolManagerExtendedComponentFactory(pluginId) {
 // jQuery datetimepicker removal authored by @mdziekon, adopted via mdziekon/OctoPrint-SpoolManager PR #21.
 // The dialog uses native date/datetime-local inputs; this only provides the observables
 // the edit dialog binds against.
-SpoolManagerExtendedComponentFactory.createDateTimePicker = function (elementId, showTimePicker) {
+SpoolManagerExtendedComponentFactory.createDateTimePicker = function (
+    elementId,
+    showTimePicker
+) {
     var componentViewModel = {
         currentDateTime: ko.observable(),
         isEnabled: ko.observable(true)
@@ -31,7 +34,10 @@ SpoolManagerExtendedComponentFactory.createDateTimePicker = function (elementId,
 // The returned model is the same one the widget version returned - consumers only ever used
 // componentViewModel.selectedColor, and that observable now carries "#rrggbb" consistently
 // (pick-a-color stored the hex without the "#", hence the prefixing this used to do).
-SpoolManagerExtendedComponentFactory.createColorPicker = function (elementId, initialColor) {
+SpoolManagerExtendedComponentFactory.createColorPicker = function (
+    elementId,
+    initialColor
+) {
     var picker = SPOOLMANAGER_COLOR_PICKER.create("#" + elementId, {
         initialColor: initialColor
     });

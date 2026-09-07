@@ -4,7 +4,9 @@ function SpoolManagerExtendedSpoolSelectionTableComp() {
 
     //////////////////////////////////////////////////////////////////// public functions
     self.registerSpoolSelectionTableComp = function () {
-        var spoolSelectionTableCompHTMLTemplate = $("#spmx-spm-select-spool-table").html();
+        var spoolSelectionTableCompHTMLTemplate = $(
+            "#spmx-spm-select-spool-table"
+        ).html();
         ko.components.register("spmx-select-spool-table", {
             viewModel: self._viewModelFunction,
             template: spoolSelectionTableCompHTMLTemplate
@@ -191,7 +193,12 @@ function SpoolManagerExtendedSpoolSelectionTableComp() {
         // separately, or the new entry stays silently excluded while "select all" is active.
         // Extends mdziekon PR #15's updateCatalogs() fix to this component, which has no
         // updateCatalogs() of its own to hook into.
-        var reselectAllForGrownCatalog = function (allKo, selectedKo, showAllKo, idMapper) {
+        var reselectAllForGrownCatalog = function (
+            allKo,
+            selectedKo,
+            showAllKo,
+            idMapper
+        ) {
             self.isUpdatingCatalogs = true;
             try {
                 if (showAllKo()) {

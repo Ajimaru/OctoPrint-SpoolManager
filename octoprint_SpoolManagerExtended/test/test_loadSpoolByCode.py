@@ -25,7 +25,9 @@ class TestLoadSpoolByCode(unittest.TestCase):
         self.database.bind(MODELS)
         self.database.create_tables(MODELS)
 
-        self.databaseManager = DatabaseManager(logging.getLogger("test.dbmanager"), False)
+        self.databaseManager = DatabaseManager(
+            logging.getLogger("test.dbmanager"), False
+        )
         # Bypass connectoToDatabase() (postgres/mysql/sqlite-file branching, unrelated to
         # what's under test here) and hand the manager an already-open connection, the
         # same way _handleReusableConnection()'s withReusedConnection=True path expects.

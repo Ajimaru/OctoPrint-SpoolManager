@@ -12,8 +12,8 @@ import struct
 import unittest
 
 from octoprint_SpoolManagerExtended.common import FilamentTagConstants, TagFormats
-from octoprint_SpoolManagerExtended.common.FilamentTagParsers import TigerTagTagParser
 from octoprint_SpoolManagerExtended.common.FilamentTagModel import ScanResult, TagType
+from octoprint_SpoolManagerExtended.common.FilamentTagParsers import TigerTagTagParser
 from octoprint_SpoolManagerExtended.models.SpoolModel import SpoolModel
 
 
@@ -102,7 +102,9 @@ class TestFormatForTagTypeNeverReturnsUnsupported(unittest.TestCase):
         }
         TagFormats.NTAG_FORMAT_SETTING_TO_TAG_FORMAT["zzTestOnly"] = formatId
         try:
-            resolved = TagFormats.formatForTagType("ntag", ntagFormatSetting="zzTestOnly")
+            resolved = TagFormats.formatForTagType(
+                "ntag", ntagFormatSetting="zzTestOnly"
+            )
             self.assertEqual(TagFormats.TAG_FORMAT_OPENSPOOL, resolved)
         finally:
             del TagFormats.TAG_FORMATS[formatId]
