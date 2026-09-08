@@ -37,9 +37,9 @@ testdata/** -text
 # must stay byte-identical to what upstream shipped. A minified file is a single
 # very long line, so a diff on it is unreadable anyway.
 3rdPartySoftware/** linguist-vendored
-octoprint_SpoolManager/static/js/quill.min.js -text linguist-vendored
-octoprint_SpoolManager/static/js/tinycolor.min.js -text linguist-vendored
-octoprint_SpoolManager/static/css/quill.snow.css -text linguist-vendored
+octoprint_SpoolManagerExtended/static/js/quill.min.js -text linguist-vendored
+octoprint_SpoolManagerExtended/static/js/tinycolor.min.js -text linguist-vendored
+octoprint_SpoolManagerExtended/static/css/quill.snow.css -text linguist-vendored
 
 # Jinja2 templates are HTML, not a separate language, for language stats
 *.jinja2 linguist-language=HTML

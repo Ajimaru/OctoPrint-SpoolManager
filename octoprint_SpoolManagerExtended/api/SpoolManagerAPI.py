@@ -2585,7 +2585,7 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
             flask.url_for("index", _external=True)
             + "?spmQrStatus="
             + status
-            + "#tab_plugin_SpoolManager-spoolId"
+            + "#tab_plugin_SpoolManagerExtended-spoolId"
             + str(databaseId)
         )
         # 302 (not 307): this is a plain GET, and preserving the method serves no purpose

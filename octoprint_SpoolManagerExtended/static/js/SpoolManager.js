@@ -3210,7 +3210,7 @@ $(function () {
         };
 
         self.onTabChange = function (next, current) {
-            if ("#tab_plugin_SpoolManager" == next) {
+            if ("#tab_plugin_SpoolManagerExtended" == next) {
                 // with lazy table loading this is the first (deferred) load,
                 // afterwards it behaves like the previous reloadItems() call
                 self.spoolItemTableHelper.enableLoadingAndReload();
@@ -3264,11 +3264,13 @@ $(function () {
         self.onAfterTabChange = function (current, previous) {
             var tabHashCode = window.location.hash;
             // QR-Code-Call: We can only contain -spoolId on the very first page.
-            // The hash carries only the spool id (#tab_plugin_SpoolManager-spoolId<id>);
+            // The hash carries only the spool id (#tab_plugin_SpoolManagerExtended-spoolId<id>);
             // the optional outcome rides in a real query string (?spmQrStatus=<status>),
             // NOT inside the fragment - a "?" in the hash breaks OctoPrint's startup and
             // leaves the UI stuck on "Loading OctoPrint's UI".
-            var qrCodeMatch = /^#tab_plugin_SpoolManager-spoolId(\d+)/.exec(tabHashCode);
+            var qrCodeMatch = /^#tab_plugin_SpoolManagerExtended-spoolId(\d+)/.exec(
+                tabHashCode
+            );
             if (qrCodeMatch != null && self._qrCodeSelectionInProgress == false) {
                 self._qrCodeSelectionInProgress = true;
                 var selectedSpoolId = parseInt(qrCodeMatch[1]);
@@ -3285,7 +3287,7 @@ $(function () {
                     selectedSpoolId,
                     function (responseData) {
                         //Select the SpoolManager tab
-                        $('a[href="#tab_plugin_SpoolManager"]').tab("show");
+                        $('a[href="#tab_plugin_SpoolManagerExtended"]').tab("show");
                         // Drop both the status query param and the spoolId hash only now that the
                         // tab is settled, otherwise a reload re-runs the whole thing and pops the
                         // same message up again.
@@ -3293,7 +3295,8 @@ $(function () {
                             window.history.replaceState(
                                 null,
                                 "",
-                                window.location.pathname + "#tab_plugin_SpoolManager"
+                                window.location.pathname +
+                                    "#tab_plugin_SpoolManagerExtended"
                             );
                         }
                         self._qrCodeSelectionInProgress = false;
@@ -3355,7 +3358,7 @@ $(function () {
             "filesViewModel",
             "printerProfilesViewModel"
         ],
-        // Elements to bind to, e.g. #settings_plugin_SpoolManager, #tab_plugin_SpoolManager, ...
+        // Elements to bind to, e.g. #settings_plugin_SpoolManagerExtended, #tab_plugin_SpoolManagerExtended, ...
         elements: [
             document.getElementById("spmx-settings_spoolmanager"),
             document.getElementById("spmx-tab_spoolOverview"),
