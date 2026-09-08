@@ -1,4 +1,4 @@
-# Linting and formatting for the SpoolManager plugin.
+# Linting and formatting for the SpoolManagerExtended plugin.
 #
 # Mirrors OctoPrint core's tooling: Black + isort + flake8 for Python, Prettier for
 # the frontend (same .prettierrc values as OctoPrint core), plus ESLint/stylelint/djlint

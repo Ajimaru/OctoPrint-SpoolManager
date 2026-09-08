@@ -1,4 +1,4 @@
-// ESLint flat config for the SpoolManager frontend.
+// ESLint flat config for the SpoolManagerExtended frontend.
 //
 // The frontend is classic browser script code (no bundler, no modules) loaded by
 // OctoPrint, so everything runs in the global scope and relies on globals that
@@ -74,8 +74,8 @@ const browserGlobals = {
     PLUGIN_BASEURL: "readonly",
     UI_API_KEY: "readonly",
 
-    // --- SpoolManager's own cross-file globals ---
-    // The frontend has no module system. These four namespaces are assigned
+    // --- SpoolManagerExtended's own cross-file globals ---
+    // The frontend has no module system. These namespaces are assigned
     // without a declaration keyword (implicit globals) in common/, so ESLint
     // cannot infer them; the constructors in static/js/*.js are declared with
     // `function`/`var` and are picked up automatically.
@@ -129,12 +129,14 @@ module.exports = [
             "no-undef": "error",
             // `args: none` because knockout/OctoPrint callbacks have fixed
             // signatures. Top-level constructors are consumed from other files
-            // through the global scope, which ESLint cannot see per-file.
+            // through the global scope, which ESLint cannot see per-file, so
+            // varsIgnorePattern exempts them: every constructor starts with
+            // "SpoolManager" (the Extended ones included), plus SpoolItem.
             "no-unused-vars": [
                 "error",
                 {
                     args: "none",
-                    varsIgnorePattern: "^(_|SpoolManager|SpoolSelection|SpoolItem|TableItemHelper|ComponentFactory|ResetSettingsUtilV3|DatabaseConnectionProblemDialog)",
+                    varsIgnorePattern: "^(_|SpoolManager|SpoolItem)",
                     caughtErrors: "none",
                 },
             ],

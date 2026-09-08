@@ -28,7 +28,7 @@ read-only and no proprietary format is ever written.
 ## TigerTag SDK (TigerTag tag format)
 
 The TigerTag vendor tag parser and the id lookup tables under
-`octoprint_SpoolManager/common/tagdata/` are derived from
+`octoprint_SpoolManagerExtended/common/tagdata/` are derived from
 [TigerTag-SDK-Python](https://github.com/TigerTag-Project/TigerTag-SDK-Python) by TigerTag
 Corp., published under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
 (full text in `3rdPartySoftware/TigerTag-SDK-Python/LICENSE`), specifically `tigertag/tag.py`
@@ -42,7 +42,7 @@ direction is one-way.
 
 Changes made: only the id-to-label mappings this plugin needs were kept; the per-material
 `recommended` temperature values are deliberately **not** used, because a tag's own values
-must never be shadowed by a table lookup. `common/tagdata/tigertag_ids.json` ships as an
+must never be shadowed by a table lookup. `octoprint_SpoolManagerExtended/common/tagdata/tigertag_ids.json` ships as an
 offline fallback snapshot only; at runtime `TigerTagIdService` (mirroring
 `FilamentDatabaseService`'s SpoolmanDB-Community mechanism) fetches the current
 `tigertag/database/*.json` files directly from the TigerTag-SDK-Python repository on a

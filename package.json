@@ -1,8 +1,8 @@
 {
-  "name": "octoprint-spoolmanager-lint",
+  "name": "octoprint-spoolmanagerextended-lint",
   "version": "0.0.0",
   "private": true,
-  "description": "Linting tooling for the OctoPrint-SpoolManager frontend assets (not a published package).",
+  "description": "Linting tooling for the OctoPrint-SpoolManagerExtended frontend assets (not a published package).",
   "scripts": {
     "lint": "npm run lint:js && npm run lint:css && npm run lint:format",
     "lint:js": "eslint octoprint_SpoolManagerExtended/static/js",
