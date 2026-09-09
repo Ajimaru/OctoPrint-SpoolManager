@@ -931,12 +931,22 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
             # no popup, because turned off by user
             result["reminderSpoolSelection"] = []
 
+        # An unsliced project file ("X.3mf" next to the sliced "X.gcode.3mf") carries no
+        # filament figures and never will, so the dialog must not tell the user to wait
+        # for metadata. _readingFilamentMetaData() above sets this for the current job.
+        unslicedJobFile = getattr(self, "_unslicedJobFile", None)
+
         return flask.jsonify(
             {
                 "result": result,
                 "metaOrAttributesMissing": metaOrAttributesMissing,  # deprecated
                 "metaDataMissing": metaDataMissing,
                 "attributesMissing": attributesMissing,
+                "jobFileNotSliced": unslicedJobFile is not None,
+                "jobFilePath": None if unslicedJobFile is None else unslicedJobFile[0],
+                "slicedJobFilePath": (
+                    None if unslicedJobFile is None else unslicedJobFile[1]
+                ),
                 "toolOffsetEnabled": self._settings.get_boolean(
                     [SettingsKeys.SETTINGS_KEY_TOOL_OFFSET_ENABLED]
                 ),

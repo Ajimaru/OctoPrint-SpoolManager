@@ -110,26 +110,73 @@ $(function () {
             });
         };
 
-        // Toast while the plugin downloads/analyzes a printer-storage file
-        self.printerFileAnalysisNotify = null;
-        self.showPrinterFileAnalysisStarted = function (path) {
-            if (self.printerFileAnalysisNotify == null) {
-                self.printerFileAnalysisNotify = new PNotify({
-                    title: "SPM: Analyzing print file",
-                    text:
-                        "Fetching '" +
-                        path +
-                        "' from printer storage to calculate the needed filament...",
-                    type: "info",
-                    icon: "fa fa-spinner fa-spin",
-                    hide: false
-                });
+        // Modal while the plugin downloads/analyzes a printer-storage file.
+        // The bambu library reports no download progress (its ftpsclient.download_file
+        // hands file.write straight to retrbinary, without the callback its upload
+        // counterpart has), so the dialog shows an indeterminate bar plus an elapsed
+        // counter rather than a percentage.
+        self.printerFileAnalysisDialog = {
+            fileName: ko.observable(""),
+            fileSizeText: ko.observable(""),
+            elapsedText: ko.observable("")
+        };
+        // Small downloads (and every cache hit) finish in well under a second - showing
+        // the modal only after this delay keeps it from flashing up for those.
+        var PRINTER_FILE_ANALYSIS_DIALOG_DELAY_MS = 1000;
+        self.printerFileAnalysisShowTimer = null;
+        self.printerFileAnalysisElapsedTimer = null;
+        self.printerFileAnalysisVisible = false;
+
+        var formatAnalysisFileSize = function (bytes) {
+            if (bytes == null || isNaN(bytes)) {
+                return "";
             }
+            var units = ["B", "KB", "MB", "GB"];
+            var value = bytes;
+            var unitIndex = 0;
+            while (value >= 1024 && unitIndex < units.length - 1) {
+                value = value / 1024;
+                unitIndex++;
+            }
+            return value.toFixed(unitIndex === 0 ? 0 : 1) + " " + units[unitIndex];
+        };
+
+        self.showPrinterFileAnalysisStarted = function (path, size) {
+            // a second start without a finish would otherwise leak the first timer
+            self.hidePrinterFileAnalysisToast();
+
+            var fileName = (path || "").split("/").pop();
+            self.printerFileAnalysisDialog.fileName(fileName);
+            self.printerFileAnalysisDialog.fileSizeText(formatAnalysisFileSize(size));
+            self.printerFileAnalysisDialog.elapsedText("0 s");
+
+            var startedAt = Date.now();
+            self.printerFileAnalysisShowTimer = setTimeout(function () {
+                self.printerFileAnalysisShowTimer = null;
+                self.printerFileAnalysisVisible = true;
+                $("#spmx-dialog_spoolManager_printerFileAnalysis").modal({
+                    backdrop: "static",
+                    keyboard: false,
+                    show: true
+                });
+                self.printerFileAnalysisElapsedTimer = setInterval(function () {
+                    var seconds = Math.round((Date.now() - startedAt) / 1000);
+                    self.printerFileAnalysisDialog.elapsedText(seconds + " s");
+                }, 1000);
+            }, PRINTER_FILE_ANALYSIS_DIALOG_DELAY_MS);
         };
         self.hidePrinterFileAnalysisToast = function () {
-            if (self.printerFileAnalysisNotify != null) {
-                self.printerFileAnalysisNotify.remove();
-                self.printerFileAnalysisNotify = null;
+            if (self.printerFileAnalysisShowTimer != null) {
+                clearTimeout(self.printerFileAnalysisShowTimer);
+                self.printerFileAnalysisShowTimer = null;
+            }
+            if (self.printerFileAnalysisElapsedTimer != null) {
+                clearInterval(self.printerFileAnalysisElapsedTimer);
+                self.printerFileAnalysisElapsedTimer = null;
+            }
+            if (self.printerFileAnalysisVisible) {
+                self.printerFileAnalysisVisible = false;
+                $("#spmx-dialog_spoolManager_printerFileAnalysis").modal("hide");
             }
         };
 
@@ -2665,9 +2712,24 @@ $(function () {
                 var warning = "";
                 var warning2 = "";
                 if (responseData.metaDataMissing) {
-                    warning =
-                        "<strong>ATTENTION:</strong> Needed filament could not be calculated " +
-                        "(missing metadata - wait for the uploaded file to be processed).<br><br>";
+                    if (responseData.jobFileNotSliced) {
+                        // an unsliced project file carries no filament figures and never
+                        // will, so pointing at the sliced sibling beats "wait for it"
+                        var slicedHint = responseData.slicedJobFilePath
+                            ? "Select '" +
+                              $("<div>").text(responseData.slicedJobFilePath).html() +
+                              "' instead."
+                            : "Slice the file first, then select the sliced version.";
+                        warning =
+                            "<strong>ATTENTION:</strong> Needed filament could not be calculated " +
+                            "- this file is not sliced (it is a project file, not a print job). " +
+                            slicedHint +
+                            "<br><br>";
+                    } else {
+                        warning =
+                            "<strong>ATTENTION:</strong> Needed filament could not be calculated " +
+                            "(missing metadata - wait for the uploaded file to be processed).<br><br>";
+                    }
                     warning2 = " (maybe)";
                 }
                 if (responseData.attributesMissing) {
@@ -3154,7 +3216,7 @@ $(function () {
                 return;
             }
             if ("printerFileAnalysisStarted" == data.action) {
-                self.showPrinterFileAnalysisStarted(data.path);
+                self.showPrinterFileAnalysisStarted(data.path, data.size);
                 return;
             }
             if ("printerFileAnalysisFinished" == data.action) {

@@ -80,14 +80,21 @@ class FakePlugin(object):
     _parseFilamentLengthsFromBambu3mf = (
         SpoolmanagerPlugin._parseFilamentLengthsFromBambu3mf
     )
-    _getFilamentFromPrinter3mf = SpoolmanagerPlugin._getFilamentFromPrinter3mf
+    _getFilamentFromPrinterFile = SpoolmanagerPlugin._getFilamentFromPrinterFile
+    _parseFilamentLengthsFromGcodeComments = (
+        SpoolmanagerPlugin._parseFilamentLengthsFromGcodeComments
+    )
+    _parseFilamentCommentValues = SpoolmanagerPlugin._parseFilamentCommentValues
+    _streamLength = SpoolmanagerPlugin._streamLength
+    FILAMENT_USED_MM_PATTERN = SpoolmanagerPlugin.FILAMENT_USED_MM_PATTERN
+    FILAMENT_USED_CM3_PATTERN = SpoolmanagerPlugin.FILAMENT_USED_CM3_PATTERN
 
     def __init__(self, connectorParams, payload, fileManagerMetadata=None):
         self._logger = logging.getLogger("test.moonrakerfilament")
         self._u1RfidManager = FakeU1RfidManager(connectorParams, payload)
         self._file_manager = FakeFileManager(fileManagerMetadata)
         self._printer = None
-        self._printer3mfFilamentCache = {}
+        self._printerFileFilamentCache = {}
         self._moonrakerFilamentCache = {}
 
 

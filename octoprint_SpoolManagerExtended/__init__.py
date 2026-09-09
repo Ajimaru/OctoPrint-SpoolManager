@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import os
+import re
 import shutil
 import socket
 import sqlite3
@@ -81,8 +82,11 @@ class SpoolmanagerPlugin(
     def initialize(self):
         self._logger.info("Start initializing")
 
-        # cache for filament usage parsed from printer-storage 3mf files: (path, plate) -> (fingerprint, filament)
-        self._printer3mfFilamentCache = {}
+        # cache for filament usage parsed from printer-storage files (3mf container or
+        # plain gcode): (path, plate) -> (fingerprint, filament)
+        self._printerFileFilamentCache = {}
+        # set while the selected job is an unsliced project file: (path, slicedSibling)
+        self._unslicedJobFile = None
         # cache for per-tool filament usage read from Moonraker: (host, port, path) -> (filament,)
         self._moonrakerFilamentCache = {}
         # guards against booking the sliced usage twice (connectors may fire PRINT_DONE multiple times)
@@ -997,6 +1001,94 @@ class SpoolmanagerPlugin(
 
         return None, None
 
+    # `; filament used [mm] = 42.31` or, multi-tool, `= 0.00, 0.00, 0.00, 21872.80`
+    FILAMENT_USED_MM_PATTERN = re.compile(
+        r"^;\s*filament\s+used\s*\[mm\]\s*=\s*(.+)$", re.IGNORECASE | re.MULTILINE
+    )
+    FILAMENT_USED_CM3_PATTERN = re.compile(
+        r"^;\s*filament\s+used\s*\[cm3\]\s*=\s*(.+)$", re.IGNORECASE | re.MULTILINE
+    )
+
+    def _parseFilamentLengthsFromGcodeComments(self, fileOrPath, tailBytes=65536):
+        """
+        Per-tool filament usage from the slicer's summary comments in a plain gcode file.
+
+        Bambu Studio / Orca write `; filament used [mm] = ...` into the footer of every
+        gcode they emit - a scalar for a single-tool job, one comma-separated value per
+        tool otherwise. Files sent straight to a Bambu printer's storage arrive as plain
+        gcode with no analysis metadata and no 3mf container anywhere, so these comments
+        are the only record of the sliced usage.
+
+        Returns None whenever nothing usable is found, which leaves the rest of
+        _getFilamentMetaData()'s chain in charge.
+        """
+        # the summary block sits in the footer, so read the tail instead of the whole
+        # file - printer-storage gcode runs to megabytes
+        try:
+            if hasattr(fileOrPath, "read"):
+                try:
+                    fileOrPath.seek(max(0, self._streamLength(fileOrPath) - tailBytes))
+                except Exception:
+                    fileOrPath.seek(0)
+                rawTail = fileOrPath.read()
+            else:
+                with open(fileOrPath, "rb") as gcodeFile:
+                    fileSize = os.fstat(gcodeFile.fileno()).st_size
+                    gcodeFile.seek(max(0, fileSize - tailBytes))
+                    rawTail = gcodeFile.read()
+        except Exception as e:
+            self._logger.debug(
+                "could not read gcode '%s' for filament comments: %s" % (fileOrPath, e)
+            )
+            return None
+
+        if isinstance(rawTail, bytes):
+            tail = rawTail.decode("utf-8", errors="replace")
+        else:
+            tail = rawTail
+
+        lengths = self._parseFilamentCommentValues(tail, self.FILAMENT_USED_MM_PATTERN)
+        if lengths is None:
+            return None
+        volumes = self._parseFilamentCommentValues(tail, self.FILAMENT_USED_CM3_PATTERN)
+
+        filament = {}
+        for toolIndex, usedLength in enumerate(lengths):
+            if usedLength <= 0:
+                # tools this job never touches must stay absent, not be reported as 0 -
+                # that distinction is what tells allowedToPrint() which tools are in use
+                continue
+            toolData = {"length": usedLength}
+            if volumes is not None and toolIndex < len(volumes):
+                # gcode reports cm3, the metadata format expects mm3
+                toolData["volume"] = volumes[toolIndex] * 1000.0
+            filament["tool%d" % toolIndex] = toolData
+
+        return filament if filament else None
+
+    def _streamLength(self, stream):
+        currentPosition = stream.tell()
+        try:
+            stream.seek(0, os.SEEK_END)
+            return stream.tell()
+        finally:
+            stream.seek(currentPosition)
+
+    def _parseFilamentCommentValues(self, text, pattern):
+        """Last match of `pattern` as a list of floats, or None if unusable."""
+        matches = pattern.findall(text)
+        if not matches:
+            return None
+
+        # a reprint appends a second summary block; the last one describes this job
+        values = []
+        for rawValue in matches[-1].split(","):
+            try:
+                values.append(float(rawValue.strip()))
+            except (TypeError, ValueError):
+                return None
+        return values if values else None
+
     def _parseFilamentLengthsFromBambu3mf(self, fileOrPath, plate=1):
         # bambu-studio/orca .gcode.3mf containers carry the sliced filament usage in
         # Metadata/slice_info.config: <plate><filament id="1" used_m="1.03" used_g="3.08"/></plate>
@@ -1041,6 +1133,52 @@ class SpoolmanagerPlugin(
                 break
         return result if result else None
 
+    def _is3mfWithoutSliceData(self, fileOrPath):
+        """
+        True for a 3mf that carries no sliced result at all.
+
+        Bambu Studio / Orca keep the project file ("X.3mf": geometry and settings) next to
+        the sliced job ("X.gcode.3mf") on printer storage. Both contain a
+        Metadata/slice_info.config, but the project file's holds nothing but a <header> -
+        no <plate>, and so no filament figures. Picking that one is easy to do by accident
+        (the names differ only by ".gcode"), and there is nothing to wait for: an unsliced
+        file cannot state a filament requirement.
+        """
+        try:
+            with zipfile.ZipFile(fileOrPath) as zipFile:
+                sliceInfoName = None
+                for name in zipFile.namelist():
+                    if name.lower() == "metadata/slice_info.config":
+                        sliceInfoName = name
+                        break
+                if sliceInfoName is None:
+                    return False
+                root = ET.fromstring(zipFile.read(sliceInfoName))
+        except Exception:
+            return False
+
+        return next(root.iter("plate"), None) is None
+
+    def _findSlicedCompanionFile(self, connection, path):
+        """Name of the sliced sibling of an unsliced project file, if one is on storage."""
+        if not path.lower().endswith(".3mf") or path.lower().endswith(".gcode.3mf"):
+            return None
+        candidate = path[: -len(".3mf")] + ".gcode.3mf"
+
+        try:
+            printerFiles = connection.get_printer_files()
+        except Exception:
+            return None
+
+        for printerFile in printerFiles or []:
+            filePath = getattr(printerFile, "path", None)
+            if filePath == candidate:
+                return candidate
+            for child in getattr(printerFile, "children", None) or []:
+                if getattr(child, "path", None) == candidate:
+                    return candidate
+        return None
+
     def _getFilamentMetaData(self, origin, path, plate=1):
         # Printer-storage jobs on a Moonraker printer come with per-tool usage that the
         # connector throws away, so ask Moonraker directly before trusting the metadata
@@ -1049,6 +1187,17 @@ class SpoolmanagerPlugin(
         # workaround can be dropped again.
         if origin == FileDestinations.PRINTER and path is not None:
             filament = self._getFilamentFromMoonraker(path)
+            if filament is not None:
+                return filament
+
+            # The file on printer storage is the job that actually runs, and it carries
+            # the sliced per-tool usage itself - in a 3mf's slice_info.config or in plain
+            # gcode's footer comments. A connector's own analysis is second-hand by
+            # comparison (the bambu one has none at all for plain gcode, the moonraker one
+            # collapses every tool onto tool0), so read the file first and fall through to
+            # the metadata below only when it yields nothing. The download is cached per
+            # file version, so this costs one transfer per slice, not one per call.
+            filament = self._getFilamentFromPrinterFile(path, plate)
             if filament is not None:
                 return filament
 
@@ -1084,12 +1233,10 @@ class SpoolmanagerPlugin(
                     )
                 return metadata["analysis"]["filament"]
 
-        # no analysis metadata anywhere: if a local copy is a 3mf container,
-        # extract the sliced filament usage directly from it
+        # no analysis metadata anywhere: read the sliced usage out of a local copy -
+        # from the 3mf container's slice_info.config, or from plain gcode's footer comments
         for candidateOrigin, candidatePath in candidates:
-            if candidateOrigin != FileDestinations.LOCAL or not candidatePath.endswith(
-                ".3mf"
-            ):
+            if candidateOrigin != FileDestinations.LOCAL:
                 continue
             try:
                 pathOnDisk = self._file_manager.path_on_disk(
@@ -1099,17 +1246,19 @@ class SpoolmanagerPlugin(
                 continue
             if pathOnDisk is None or not os.path.exists(pathOnDisk):
                 continue
-            filament = self._parseFilamentLengthsFromBambu3mf(pathOnDisk, plate=plate)
+            if candidatePath.lower().endswith(".3mf"):
+                filament = self._parseFilamentLengthsFromBambu3mf(
+                    pathOnDisk, plate=plate
+                )
+            else:
+                filament = self._parseFilamentLengthsFromGcodeComments(pathOnDisk)
             if filament is not None:
                 self._logger.info(
-                    "filament usage for job '%s:%s' parsed from 3mf 'local:%s' (plate %s)"
+                    "filament usage for job '%s:%s' parsed from 'local:%s' (plate %s)"
                     % (origin, path, candidatePath, plate)
                 )
                 return filament
 
-        # last resort: no local copy at all, fetch the 3mf from the printer storage
-        if origin == FileDestinations.PRINTER and path.endswith(".3mf"):
-            return self._getFilamentFromPrinter3mf(path, plate)
         return None
 
     def _getFilamentFromMoonraker(self, path):
@@ -1199,28 +1348,94 @@ class SpoolmanagerPlugin(
         )
         return filament
 
-    def _getFilamentFromPrinter3mf(self, path, plate):
+    def _resolvePrinterFilePath(self, connection, path):
+        """
+        Map the job's reported path onto a file that actually exists on printer storage.
+
+        OctoPrint-BambuConnector builds the job path from the printer's `subtask_name`
+        and appends ".gcode.3mf" whenever the name does not already end in it
+        (connector.py `_update_job_from_state()`). For a job sent as plain gcode that
+        yields "X.gcode.3mf" while the file on the SD card is "X.gcode" - the guard above
+        it still passes, because the bare subtask name is a substring of the real path.
+        Downloading the reported name then fails outright ("There was an error
+        downloading file ..."), and the printer's own logs show the same confusion
+        ("get_project_info failed ...: File is not a zip file").
+
+        So check the reported path against the storage listing and, if it is not there,
+        try it without the suffix the connector may have added. Returns the path
+        unchanged when nothing better is known, which keeps every other connector on its
+        normal path.
+        """
+        try:
+            printerFiles = connection.get_printer_files()
+        except Exception:
+            return path
+        if not printerFiles:
+            return path
+
+        knownPaths = set()
+        for printerFile in printerFiles:
+            filePath = getattr(printerFile, "path", None)
+            if filePath:
+                knownPaths.add(filePath)
+            for child in getattr(printerFile, "children", None) or []:
+                childPath = getattr(child, "path", None)
+                if childPath:
+                    knownPaths.add(childPath)
+
+        if not knownPaths or path in knownPaths:
+            return path
+
+        for suffix in (".gcode.3mf", ".3mf"):
+            if path.endswith(suffix):
+                candidate = path[: -len(suffix)]
+                if suffix == ".gcode.3mf":
+                    candidate += ".gcode"
+                if candidate in knownPaths:
+                    self._logger.info(
+                        "job file 'printer:%s' does not exist on printer storage, "
+                        "using '%s' instead" % (path, candidate)
+                    )
+                    return candidate
+        return path
+
+    def _getFilamentFromPrinterFile(self, path, plate):
         connection = getattr(self._printer, "_connection", None)
         if connection is None or not hasattr(connection, "download_printer_file"):
             return None
 
-        # downloading from the printer takes seconds, so cache by file fingerprint
+        path = self._resolvePrinterFilePath(connection, path)
+
+        # downloading from the printer takes seconds, so cache by file fingerprint.
+        # This is a lookup in the connector's own file cache, not a network roundtrip -
+        # which matters because _readingFilamentMetaData() runs many times per job.
         fingerprint = None
+        fileSize = None
         try:
             printerFile = connection.get_printer_file(path)
-            fingerprint = (
-                getattr(printerFile, "size", None),
-                getattr(printerFile, "date", None),
-            )
+            fileSize = getattr(printerFile, "size", None)
+            fingerprint = (fileSize, getattr(printerFile, "date", None))
         except Exception:
             pass
 
         cacheKey = (path, plate)
-        cached = self._printer3mfFilamentCache.get(cacheKey)
-        if cached is not None and cached[0] == fingerprint:
+        cached = self._printerFileFilamentCache.get(cacheKey)
+        # without a fingerprint there is no way to tell a re-slice from the cached file,
+        # so re-read rather than risk serving usage from a previous version of the job
+        if cached is not None and fingerprint is not None and cached[0] == fingerprint:
+            # "is unsliced" is a property of the file and stays cached with it; which
+            # sibling sits next to it on storage is not - that one can be deleted or
+            # sliced at any time, so look it up again rather than name a stale file
+            if len(cached) > 2 and cached[2]:
+                self._unslicedJobFile = (
+                    path,
+                    self._findSlicedCompanionFile(connection, path),
+                )
             return cached[1]
 
-        self._sendDataToClient(dict(action="printerFileAnalysisStarted", path=path))
+        self._sendDataToClient(
+            dict(action="printerFileAnalysisStarted", path=path, size=fileSize)
+        )
         try:
             try:
                 fileObject = connection.download_printer_file(path)
@@ -1229,24 +1444,66 @@ class SpoolmanagerPlugin(
                     "could not download 'printer:%s' for filament parsing: %s"
                     % (path, e)
                 )
+                # remember the failure: _readingFilamentMetaData() runs on every job and
+                # settings poll, and without this every one of them retries the download
+                if fingerprint is not None:
+                    self._printerFileFilamentCache[cacheKey] = (
+                        fingerprint,
+                        None,
+                        False,
+                    )
                 return None
 
-            filament = self._parseFilamentLengthsFromBambu3mf(fileObject, plate=plate)
+            if path.lower().endswith(".3mf"):
+                filament = self._parseFilamentLengthsFromBambu3mf(
+                    fileObject, plate=plate
+                )
+                if filament is None and self._is3mfWithoutSliceData(fileObject):
+                    # not "metadata is still being processed" but "there is nothing to
+                    # process" - record it so the print dialog can say so
+                    self._unslicedJobFile = (
+                        path,
+                        self._findSlicedCompanionFile(connection, path),
+                    )
+                    self._logger.warning(
+                        "job file 'printer:%s' carries no sliced data (project file, not a "
+                        "sliced job)%s"
+                        % (
+                            path,
+                            (
+                                ""
+                                if self._unslicedJobFile[1] is None
+                                else "; sliced sibling on storage: '%s'"
+                                % self._unslicedJobFile[1]
+                            ),
+                        )
+                    )
+            else:
+                # plain gcode sent straight to printer storage: the sliced usage only
+                # survives in the slicer's footer comments
+                filament = self._parseFilamentLengthsFromGcodeComments(fileObject)
         finally:
             self._sendDataToClient(
                 dict(action="printerFileAnalysisFinished", path=path)
             )
-        self._printer3mfFilamentCache[cacheKey] = (fingerprint, filament)
+        self._printerFileFilamentCache[cacheKey] = (
+            fingerprint,
+            filament,
+            self._unslicedJobFile is not None,
+        )
         if filament is not None:
             self._logger.info(
-                "filament usage for job 'printer:%s' parsed from downloaded 3mf (plate %s)"
-                % (path, plate)
+                "filament usage for job 'printer:%s' parsed from downloaded file (plate %s): %s"
+                % (path, plate, {t: d["length"] for t, d in filament.items()})
             )
         return filament
 
     def _readingFilamentMetaData(self):
         filamentLengthPresentInMeta = False
         self.metaDataFilamentLengths = []
+        # re-derived below for whatever job is current now, so a hint never outlives the
+        # file it was raised for
+        self._unslicedJobFile = None
 
         origin, path = self._getCurrentJobFileLocation()
         if origin is None or path is None:
@@ -1292,6 +1549,13 @@ class SpoolmanagerPlugin(
             "detailedSpoolResult": [],
         }
         if metaDataMissing:
+            # distinguish "not processed yet" from "nothing to process": an unsliced
+            # project file will never gain a filament figure, so telling the user to wait
+            # would be wrong
+            if self._unslicedJobFile is not None:
+                requiredWeightResultDict["jobFileNotSliced"] = True
+                requiredWeightResultDict["jobFilePath"] = self._unslicedJobFile[0]
+                requiredWeightResultDict["slicedJobFilePath"] = self._unslicedJobFile[1]
             return requiredWeightResultDict
 
         # loop over all tools
