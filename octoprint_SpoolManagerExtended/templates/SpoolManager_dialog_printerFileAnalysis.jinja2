@@ -1,0 +1,23 @@
+<!--###############################################################  Printer-File Analysis-Dialog: id=dialog_spoolManager_printerFileAnalysis -->
+<div id="spmx-dialog_spoolManager_printerFileAnalysis" class="modal hide fade">
+    <div class="modal-header">
+        <!-- no close control: the download cannot be cancelled, the dialog closes itself
+             when the backend reports the analysis finished (or failed) -->
+        <h3 class="modal-title">{{ _('Analyzing print file') }} <i class="fa fa-spinner fa-spin"></i></h3>
+    </div>
+    <div class="modal-body">
+        <div>{{ _('Fetching the file from printer storage to calculate the needed filament...') }}</div>
+        <br/>
+        <!-- the bambu library reports no download progress (ftpsclient.download_file has no
+             callback), so this bar is deliberately indeterminate: it shows activity, not percent -->
+        <div class="progress progress-striped active" style="margin-bottom: 4px;">
+            <div class="bar" style="width: 100%;"></div>
+        </div>
+        <div><b data-bind="text: printerFileAnalysisDialog.fileName"></b></div>
+        <div class="muted">
+            <span data-bind="visible: printerFileAnalysisDialog.fileSizeText, text: printerFileAnalysisDialog.fileSizeText"></span>
+            <span data-bind="visible: printerFileAnalysisDialog.fileSizeText">&middot;</span>
+            <span data-bind="text: printerFileAnalysisDialog.elapsedText"></span>
+        </div>
+    </div>
+</div>
