@@ -1168,6 +1168,35 @@ def _octoscaleMinuteOfDayOrNone(value):
     return value
 
 
+def _octoscaleDryingTimeHoursOrNone(rawMinutes):
+    """The tag stores drying time in MINUTES (uint16); SpoolManager stores HOURS.
+
+    Keeping minutes on the tag is deliberate: the plugin<->firmware JSON contract is
+    already minutes end to end (TagFormats._dryingTimeMinutesOrNone converts on write), so
+    the firmware never has to convert and the conversion lives here alone. The rounding
+    expression is deliberately the same one OpenPrintTag.decodeMainFields() uses - two
+    different rounding rules for the same quantity is how a format drifts apart.
+
+    Every carrier has a uint16 for this, so the 1-byte squeeze that produced the TigerTag
+    factor-60 bug cannot happen here.
+    """
+    rawMinutes = _octoscaleU16OrNone(rawMinutes)
+    if rawMinutes is None:
+        return None
+    return int(round(rawMinutes / 60.0))
+
+
+def _octoscaleTdOrNone(rawTd):
+    """TD is a dimensionless opacity number (0.1-100); the tag stores round(td * 100) as a
+    uint16, giving two decimals over the whole documented range. Never a length - do not
+    label it in mm anywhere.
+    """
+    rawTd = _octoscaleU16OrNone(rawTd)
+    if rawTd is None:
+        return None
+    return rawTd / 100.0
+
+
 def _octoscaleEpochDaysToIso(days):
     """Epoch-days (days since 1970-01-01) to an ISO 8601 date string, or the "not set"
     sentinel GenericFilament otherwise uses. Mirrors TagFormats._epochDaysOrNone() in
@@ -1298,6 +1327,12 @@ class OctoScaleExtendedTagParser(object):
     for the CRC coverage, which grows with each version and is the one place a v2 reader
     would break on a v3 tag if it used the wrong length.
 
+    v5 adds dryingTemperature/dryingTime/td in the free tail of block 17. It is the first
+    version that does NOT grow the CRC: block 17 has never been covered (v3 already put
+    its minute-of-day fields there unprotected), so extending coverage would need a fourth
+    non-contiguous range and would invalidate every existing v4 tag. Deliberate, and
+    pinned by test_v5_crc_coverage_is_unchanged_from_v4.
+
     Like Qidi, this format sits on the Mifare factory key (FFFFFFFFFFFF), which every
     blank Classic tag also accepts - authentication proves nothing here. Recognition has
     to come entirely from the magic bytes and the CRC, not from having authenticated.
@@ -1317,6 +1352,13 @@ class OctoScaleExtendedTagParser(object):
     BLOCK_16_V3_NUMERIC = 16 * 16
     BLOCK_17_V3_MINUTES = 17 * 16
     BLOCK_36_V3_COMMIT = 36 * 16
+
+    # v5 fills the unused tail of block 17, which v3 left free after its three
+    # minute-of-day uint16s at +0..+5. The pad byte at +7 keeps both uint16s 2-byte
+    # aligned and leaves a spare u8 slot for a later version.
+    BLOCK_17_V5_DRYING_TEMP = BLOCK_17_V3_MINUTES + 6
+    BLOCK_17_V5_DRYING_TIME = BLOCK_17_V3_MINUTES + 8
+    BLOCK_17_V5_TD = BLOCK_17_V3_MINUTES + 10
 
     MAGIC = b"OS"
     V3_SUB_MAGIC = b"O3"
@@ -1352,13 +1394,14 @@ class OctoScaleExtendedTagParser(object):
         version = Binary.extract_byte(data, self.BLOCK_8_HEADER + 2)
         if version is None or version < 1:
             return None
-        # Unknown/future versions must be rejected, not optimistically parsed as v4 - a v5
-        # tag would otherwise be misread as v4 with garbage in the fields v5 repurposed.
-        if version > 4:
+        # Unknown/future versions must be rejected, not optimistically parsed as v5 - a v6
+        # tag would otherwise be misread as v5 with garbage in the fields v6 repurposed.
+        if version > 5:
             return None
         isV2 = version >= 2
         isV3 = version >= 3
         isV4 = version >= 4
+        isV5 = version >= 5
 
         flags1 = Binary.extract_byte(data, self.BLOCK_8_HEADER + 3) or 0
         buffer1Present = bool(flags1 & 0x01)
@@ -1373,6 +1416,8 @@ class OctoScaleExtendedTagParser(object):
         #   v3: + block16[0..15] (v3 numeric fields)                         (49 B)
         #   v4: block10 grows to [0..8] (bed range + 2 extra colors + flags),
         #       block16 shifts to offset 40 in the CRC buffer instead of 33   (56 B)
+        #   v5: unchanged from v4 (56 B) - the drying/td fields live in block 17, which
+        #       has never been CRC-covered. Do not "fix" this by extending coverage.
         # v4's block10 covers 9 bytes (bed min/max at [0..1], unchanged; colors 2/3 and
         # flags at [2..8], new) where v2/v3 only covered the first 2 - RED FALCON
         # confirmed the CRC buffer position of block16 moves accordingly on v4 tags.
@@ -1479,6 +1524,9 @@ class OctoScaleExtendedTagParser(object):
                     _octoscaleColorArgb(color3Rgb[0], color3Rgb[1], color3Rgb[2])
                 )
 
+        dryingTemp = None
+        dryingTimeHours = None
+        tdValue = None
         remainingWeight = None
         totalLength = None
         usedLength = None
@@ -1523,6 +1571,21 @@ class OctoScaleExtendedTagParser(object):
                     Binary.extract_uint16_le(data, self.BLOCK_17_V3_MINUTES + 4)
                 )
 
+        # v5's drying/td fields share block 17 with the v3 minutes above. The length guard
+        # is separate from the version gate for the same reason it is up there: block 17
+        # carries no CRC, so a short read has to degrade to "absent" rather than reject the
+        # tag or report zeros.
+        if isV5 and len(data) >= self.BLOCK_17_V3_MINUTES + 12:
+            dryingTemp = _octoscaleU8OrNone(
+                Binary.extract_byte(data, self.BLOCK_17_V5_DRYING_TEMP)
+            )
+            dryingTimeHours = _octoscaleDryingTimeHoursOrNone(
+                Binary.extract_uint16_le(data, self.BLOCK_17_V5_DRYING_TIME)
+            )
+            tdValue = _octoscaleTdOrNone(
+                Binary.extract_uint16_le(data, self.BLOCK_17_V5_TD)
+            )
+
         strings1 = {}
         if buffer1Present and len(data) >= self.BUFFER_1_OFFSET + 48:
             strings1 = _octoscaleReadStrings(
@@ -1565,8 +1628,13 @@ class OctoScaleExtendedTagParser(object):
             bed_temp_c=bedTemp if bedTemp is not None else 0,
             bed_min_temp_c=bedMin,
             bed_max_temp_c=bedMax,
-            drying_temp_c=0,
-            drying_time_hours=0,
+            # v5 fields, absent (None -> 0) on v1-v4 tags. The generic path is safe either
+            # way: FilamentTagToSpool._noneIfZero turns a 0 back into "not set" before it
+            # can reach a spool. The authoritative values are the octoscaleExtendedFields
+            # below, which are merged second and win.
+            drying_temp_c=dryingTemp if dryingTemp is not None else 0,
+            drying_time_hours=dryingTimeHours if dryingTimeHours is not None else 0,
+            td=tdValue if tdValue is not None else 0.0,
             manufacturing_date=manufacturingDate,
         )
 
@@ -1616,6 +1684,9 @@ class OctoScaleExtendedTagParser(object):
             offsetTemperature=offsetTemp,
             offsetBedTemperature=offsetBedTemp,
             offsetEnclosureTemperature=offsetEnclosureTemp,
+            dryingTemperature=dryingTemp,
+            dryingTime=dryingTimeHours,
+            td=tdValue,
         )
         return filament
 
@@ -1624,11 +1695,17 @@ class OctoScaleExtendedNtagTagParser(object):
     """OctoScale's own extended format on NTAG/Ultralight.
 
     A distinct layout from the Mifare Classic version, not merely a re-offset of it: all
-    eight string fields sit in one buffer instead of two, the version stays at 1 (no v2/v3
-    split - remainingWeight/cost/lengths/dates are present from the start), and the CRC
-    covers a fixed range regardless of version. Verified byte-for-byte against a real
-    NTAG215 dump (UID 045330AC3A0289, spool 37) including its leftover openSpool NDEF JSON
-    past the commit marker - proof that a write here does not erase the tag first.
+    eight string fields sit in one buffer instead of two, remainingWeight/cost/lengths/
+    dates are present from v1 (no v2/v3 split as on Classic), and the CRC covers a fixed
+    range regardless of version. Verified byte-for-byte against a real NTAG215 dump
+    (UID 045330AC3A0289, spool 37) including its leftover openSpool NDEF JSON past the
+    commit marker - proof that a write here does not erase the tag first.
+
+    This carrier grows by pushing the string buffer further back, which makes the string
+    start the one thing a version bump must never get wrong: v1 starts it at page 19, v2
+    inserts colors 2/3 + flags and moves it to 21, v3 inserts drying/td and moves it to
+    23. Reading a v3 tag with a v2 start would parse the drying bytes as a length-prefixed
+    string - see the unconditional assignment in parseTag().
 
     Registered ahead of every NDEF parser (see FILAMENT_TAG_PARSERS below): unlike Mifare
     Classic, nothing here is sector-authenticated, so whichever parser runs first wins -
@@ -1663,8 +1740,12 @@ class OctoScaleExtendedNtagTagParser(object):
     # mid-color-data on a v2 tag.
     STRINGS_START_PAGE_V1 = 19
     STRINGS_START_PAGE_V2 = 21
+    # v3 inserts drying/td at pages 21-22, pushing strings on again to page 23.
+    STRINGS_START_PAGE_V3 = 23
     PAGE_19_COLOR2 = 19 * 4
     PAGE_20_COLOR3 = 20 * 4
+    PAGE_21_V3_DRYING = 21 * 4
+    PAGE_22_V3_TD = 22 * 4
 
     MAGIC = b"OX"
     CRC_COVERAGE_LENGTH = 36  # fixed, pages 4..12 - unchanged by v2, unlike Classic
@@ -1698,11 +1779,12 @@ class OctoScaleExtendedNtagTagParser(object):
         version = Binary.extract_byte(data, self.PAGE_4_HEADER + 2)
         if version is None or version < 1:
             return None
-        if version > 2:
+        if version > 3:
             # An unknown future version must be rejected, not parsed against today's
             # field table.
             return None
         isV2 = version >= 2
+        isV3 = version >= 3
         # Page 4 byte 3 is reserved and always 0 on NTAG - unlike Classic's block8[3],
         # which is a real "buffer 1 present" flag. Reading it the same way here would be
         # wrong; it carries no meaning on this carrier and is intentionally ignored.
@@ -1784,6 +1866,29 @@ class OctoScaleExtendedNtagTagParser(object):
                     _octoscaleColorArgb(color3Rgb[0], color3Rgb[1], color3Rgb[2])
                 )
 
+        # The string start MUST move on every v3 tag, so it is set outside the length
+        # guard below - unlike the v2 line above, which is safe only because a v2 tag that
+        # fails its guard has no later fields to be confused with. If a truncated v3 tag
+        # kept the v2 start, the string reader would walk into the drying bytes at page 21
+        # and hand back garbage for vendor/material/colorName. The version byte lives on
+        # page 4 inside the CRC-covered range, so it can be trusted here; the data length
+        # cannot.
+        dryingTemp = None
+        dryingTimeHours = None
+        tdValue = None
+        if isV3:
+            stringsStartPage = self.STRINGS_START_PAGE_V3
+            if len(data) >= self.PAGE_22_V3_TD + 4:
+                dryingTemp = _octoscaleU8OrNone(
+                    Binary.extract_byte(data, self.PAGE_21_V3_DRYING)
+                )
+                dryingTimeHours = _octoscaleDryingTimeHoursOrNone(
+                    Binary.extract_uint16_le(data, self.PAGE_21_V3_DRYING + 2)
+                )
+                tdValue = _octoscaleTdOrNone(
+                    Binary.extract_uint16_le(data, self.PAGE_22_V3_TD)
+                )
+
         totalLength = _octoscaleU24OrNone(
             Binary.extract_uint24_le(data, self.PAGE_14_LENGTHS)
         )
@@ -1856,8 +1961,11 @@ class OctoScaleExtendedNtagTagParser(object):
             bed_temp_c=bedTemp if bedTemp is not None else 0,
             bed_min_temp_c=bedMin,
             bed_max_temp_c=bedMax,
-            drying_temp_c=0,
-            drying_time_hours=0,
+            # v3 fields, absent (None -> 0) on v1/v2 tags - see the Classic parser for why
+            # a 0 here is harmless and octoscaleExtendedFields is the authoritative path.
+            drying_temp_c=dryingTemp if dryingTemp is not None else 0,
+            drying_time_hours=dryingTimeHours if dryingTimeHours is not None else 0,
+            td=tdValue if tdValue is not None else 0.0,
             manufacturing_date=manufacturingDate,
         )
         # See OctoScaleExtendedTagParser's parseTag() for why "color" is overridden here
@@ -1894,6 +2002,9 @@ class OctoScaleExtendedNtagTagParser(object):
             offsetTemperature=offsetTemp,
             offsetBedTemperature=offsetBedTemp,
             offsetEnclosureTemperature=offsetEnclosureTemp,
+            dryingTemperature=dryingTemp,
+            dryingTime=dryingTimeHours,
+            td=tdValue,
         )
         return filament
 
@@ -1942,6 +2053,9 @@ class OctoScaleExtendedNfcvTagParser(object):
     # multi-color extension. v3 adds colors 2/3 + flags in blocks 24-25 - see parseTag().
     VERSION_V2 = 2
     VERSION_V3 = 3
+    # v4 adds drying/td at blocks 26-27, after the v3 colors. Unlike NTAG, this carrier's
+    # strings sit *before* the new fields (block 11 onward), so nothing shifts.
+    VERSION_V4 = 4
 
     STRING_FIELDS = ("vendor", "material", "colorName")
 
@@ -1966,11 +2080,12 @@ class OctoScaleExtendedNfcvTagParser(object):
         version = Binary.extract_byte(data, self.BLOCK_3_HEADER + 2)
         if version is None or version < self.VERSION_V2:
             return None
-        # Unknown/future versions must be rejected, not optimistically parsed as v3 - a v4
-        # tag would otherwise be misread with garbage in the fields v4 repurposed.
-        if version > self.VERSION_V3:
+        # Unknown/future versions must be rejected, not optimistically parsed as v4 - a v5
+        # tag would otherwise be misread with garbage in the fields v5 repurposed.
+        if version > self.VERSION_V4:
             return None
         isV3 = version >= self.VERSION_V3
+        isV4 = version >= self.VERSION_V4
 
         flags = Binary.extract_byte(data, self.BLOCK_3_HEADER + 3) or 0
         stringsPresent = bool(flags & 0x01)
@@ -2018,6 +2133,22 @@ class OctoScaleExtendedNfcvTagParser(object):
                     _octoscaleColorArgb(color3Rgb[0], color3Rgb[1], color3Rgb[2])
                 )
 
+        # v4: drying/td at blocks 26-27, immediately after the v3 colors. The soft guard
+        # matters more here than on the other carriers - this format has no CRC at all and
+        # the read length is whatever the reader's block walk returned, so a tag (or a
+        # reader) that stops short must yield "absent", never a guess.
+        BLOCK_26 = 26 * 4
+        BLOCK_27 = 27 * 4
+        dryingTemp = None
+        dryingTimeHours = None
+        tdValue = None
+        if isV4 and len(data) >= BLOCK_27 + 4:
+            dryingTemp = _octoscaleU8OrNone(Binary.extract_byte(data, BLOCK_26))
+            dryingTimeHours = _octoscaleDryingTimeHoursOrNone(
+                Binary.extract_uint16_le(data, BLOCK_26 + 2)
+            )
+            tdValue = _octoscaleTdOrNone(Binary.extract_uint16_le(data, BLOCK_27))
+
         strings = {}
         if stringsPresent and len(data) >= self.STRINGS_START_BLOCK * 4:
             strings = _octoscaleReadStrings(
@@ -2046,8 +2177,11 @@ class OctoScaleExtendedNfcvTagParser(object):
             hotend_min_temp_c=None,
             hotend_max_temp_c=None,
             bed_temp_c=0,
-            drying_temp_c=0,
-            drying_time_hours=0,
+            # v4 fields, absent (None -> 0) on v2/v3 tags - see the Classic parser for why
+            # a 0 here is harmless and octoscaleExtendedFields is the authoritative path.
+            drying_temp_c=dryingTemp if dryingTemp is not None else 0,
+            drying_time_hours=dryingTimeHours if dryingTimeHours is not None else 0,
+            td=tdValue if tdValue is not None else 0.0,
             manufacturing_date=Constants.NO_MANUFACTURING_DATE,
         )
         # See OctoScaleExtendedTagParser's parseTag() for why "color" is overridden here
@@ -2078,6 +2212,9 @@ class OctoScaleExtendedNfcvTagParser(object):
             purchasedFrom=None,
             finish=None,
             displayName=None,
+            dryingTemperature=dryingTemp,
+            dryingTime=dryingTimeHours,
+            td=tdValue,
         )
         return filament
 
