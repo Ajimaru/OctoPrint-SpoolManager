@@ -104,7 +104,7 @@ def buildNfcvDump(ndefMessage):
 
 
 def nfcvScan():
-    return ScanResult(TagType.NFCV, bytes.fromhex("E00401532560D3EA"))
+    return ScanResult(TagType.NFCV, bytes.fromhex("E00401502F1A2B3C"))
 
 
 class TestBinaryHelpers(unittest.TestCase):
@@ -833,7 +833,7 @@ class TestSnapmakerTagParser(unittest.TestCase):
         self.assertEqual(16, len(set(keys)))
 
     def test_keys_depend_on_the_tag_uid(self):
-        other = ScanResult(TagType.MIFARE_CLASSIC_1K, bytes.fromhex("04AC6F56CB2A81"))
+        other = ScanResult(TagType.MIFARE_CLASSIC_1K, bytes.fromhex("04A1B2C3D4E5F6"))
         self.assertNotEqual(
             self.parser.authenticationKeys(self.scan),
             self.parser.authenticationKeys(other),
@@ -1134,7 +1134,7 @@ class TestBambuTagParser(unittest.TestCase):
 #
 # Unlike every vendor format above, real dumps ARE used here: this is our own format, not
 # manufacturer data of unclear redistribution status. The NTAG fixture is a genuine dump
-# (UID 045330AC3A0289, spool 37, captured via /nfcdump) including its leftover openSpool
+# (captured via /nfcdump; the tag UID in it is anonymised) including its leftover openSpool
 # NDEF JSON past the commit marker - that garbage is not incidental, it is the actual test
 # of the registry ordering below. The Mifare Classic and NFC-V fixtures are synthetic
 # (built from the format's own constants, CRC computed the same way the parser verifies
@@ -1447,12 +1447,15 @@ class TestOctoScaleExtendedTagParser(unittest.TestCase):
 
 
 def _ntagExtendedRealDump():
-    """The exact bytes captured via /nfcdump for UID 045330AC3A0289 (spool 37) - see
-    the plan this parser was built from. Deliberately a real dump, not synthesized: this
+    """The exact bytes captured via /nfcdump from a real NTAG215 - see
+    the plan this parser was built from. The tag UID in page 0 carries a placeholder rather
+    than the physical tag's own (with BCC0 recomputed so the page stays self-consistent);
+    every byte the parser actually reads is untouched.
+    Deliberately a real dump, not synthesized: this
     is our own format, and the leftover openSpool NDEF JSON past the commit marker (page
     32 onward) is the actual point of the fixture, not noise to be trimmed away."""
     rows = {
-        0: "045330EFAC3A02891D480000E1103E00",
+        0: "04D1D28FD3D4D5D61D480000E1103E00",
         4: "4F58010025000000E80396000701E102",
         8: "F604D606FFFFFFFFFF000000FFFFFFFF",
         12: "FFFFFF00BF000000C4FE04E64F010C05",
@@ -1550,7 +1553,7 @@ class TestOctoScaleExtendedNtagTagParser(unittest.TestCase):
     def setUp(self):
         self.parser = FilamentTagParsers.OctoScaleExtendedNtagTagParser()
         self.scan = ScanResult(
-            TagType.MIFARE_ULTRALIGHT, bytes.fromhex("045330AC3A0289")
+            TagType.MIFARE_ULTRALIGHT, bytes.fromhex("04D1D2D3D4D5D6")
         )
 
     def test_parses_the_real_dump_with_every_verified_field(self):
@@ -1757,10 +1760,10 @@ def _nfcvExtendedImage(
 class TestOctoScaleExtendedNfcvTagParser(unittest.TestCase):
     def setUp(self):
         self.parser = FilamentTagParsers.OctoScaleExtendedNfcvTagParser()
-        self.scan = ScanResult(TagType.NFCV, bytes.fromhex("E00401532560D3EA"))
+        self.scan = ScanResult(TagType.NFCV, bytes.fromhex("E00401502F1A2B3C"))
 
     def test_parses_the_written_tag_fields(self):
-        # Verified against a real ICODE tag written with spool 37's data and dumped back
+        # Verified against a real ICODE tag written from SpoolManager and dumped back
         # via /nfcdump: databaseId, weights and all three strings matched the write.
         filament = self.parser.parseTag(self.scan, _nfcvExtendedImage())
         self.assertIsNotNone(filament)
@@ -1823,8 +1826,8 @@ class TestOctoScaleExtendedNfcvTagParser(unittest.TestCase):
 
 
 def _spool110RealReadBytes():
-    """The exact hex payload /nfcreadstart returned for a real tag (UID 40CA8A50, spool
-    110, sectors [0..9]) - captured directly from the firmware, not synthesized. This is
+    """The exact hex payload /nfcreadstart returned for a real tag (sectors [0..9]; the
+    UID is a placeholder) - captured directly from the firmware, not synthesized. This is
     what caught the bug below: every earlier fixture in this file builds a full 1024-byte
     image, which cannot reproduce how the firmware actually answers a sector-scoped read.
     """
@@ -1853,7 +1856,7 @@ def _spool110RealReadBytes():
 
 
 class TestOctoScaleExtendedClassicSectorCoverage(unittest.TestCase):
-    """Two related bugs caught live on hardware (real tag, spool 110, UID 40CA8A50):
+    """Two related bugs caught live on hardware (a real Mifare Classic tag):
 
     1. The registered sector list must cover every block the parser reads - an earlier
        version named [2,3,4,5,6,7,8,9] (confusing *block* numbers 8,9,10,16 with *sector*
@@ -1908,7 +1911,7 @@ class TestOctoScaleExtendedClassicSectorCoverage(unittest.TestCase):
             640, len(raw)
         )  # 10 sectors x 64 bytes, exactly what the log showed
 
-        scan = ScanResult(TagType.MIFARE_CLASSIC_1K, bytes.fromhex("40CA8A50"))
+        scan = ScanResult(TagType.MIFARE_CLASSIC_1K, bytes.fromhex("A1B2C3D4"))
         filament, diagnostics = FilamentTagParsers.parseTagData(scan, raw)
         self.assertIsNotNone(filament, "real hardware read bytes were rejected")
         self.assertEqual("octoscaleExtended", diagnostics["parserId"])
@@ -1935,7 +1938,7 @@ class TestOctoScaleExtendedClassicSectorCoverage(unittest.TestCase):
         # worse than a loud rejection.
         raw = _spool110RealReadBytes()
         shifted = raw[64:]  # drop sector 0's 64 bytes, simulating sectors=[1..9]
-        scan = ScanResult(TagType.MIFARE_CLASSIC_1K, bytes.fromhex("40CA8A50"))
+        scan = ScanResult(TagType.MIFARE_CLASSIC_1K, bytes.fromhex("A1B2C3D4"))
         filament = FilamentTagParsers.OctoScaleExtendedTagParser().parseTag(
             scan, shifted
         )
@@ -2015,9 +2018,9 @@ class TestOctoScaleExtendedCrossCarrier(unittest.TestCase):
 
         classicScan = ScanResult(TagType.MIFARE_CLASSIC_1K, bytes.fromhex("01020304"))
         ntagScanResult = ScanResult(
-            TagType.MIFARE_ULTRALIGHT, bytes.fromhex("045330AC3A0289")
+            TagType.MIFARE_ULTRALIGHT, bytes.fromhex("04D1D2D3D4D5D6")
         )
-        nfcvScan = ScanResult(TagType.NFCV, bytes.fromhex("E00401532560D3EA"))
+        nfcvScan = ScanResult(TagType.NFCV, bytes.fromhex("E00401502F1A2B3C"))
 
         ntagParser = FilamentTagParsers.OctoScaleExtendedNtagTagParser()
         nfcvParser = FilamentTagParsers.OctoScaleExtendedNfcvTagParser()
@@ -2159,7 +2162,7 @@ class TestOctoScaleExtendedNtagMultiColorV2(unittest.TestCase):
     def setUp(self):
         self.parser = FilamentTagParsers.OctoScaleExtendedNtagTagParser()
         self.scan = ScanResult(
-            TagType.MIFARE_ULTRALIGHT, bytes.fromhex("045330AC3A0289")
+            TagType.MIFARE_ULTRALIGHT, bytes.fromhex("04D1D2D3D4D5D6")
         )
 
     def test_three_transparent_colors_round_trip(self):
@@ -2213,7 +2216,7 @@ class TestOctoScaleExtendedNtagMultiColorV2(unittest.TestCase):
 class TestOctoScaleExtendedNfcvMultiColorV3(unittest.TestCase):
     def setUp(self):
         self.parser = FilamentTagParsers.OctoScaleExtendedNfcvTagParser()
-        self.scan = ScanResult(TagType.NFCV, bytes.fromhex("E00401532560D3EA"))
+        self.scan = ScanResult(TagType.NFCV, bytes.fromhex("E00401502F1A2B3C"))
 
     def test_primary_color_is_now_read_on_a_plain_v2_tag(self):
         # Regression guard for the pre-existing bug RED FALCON found: physBuf[10..12]
@@ -2557,7 +2560,7 @@ class TestOctoScaleExtendedNtagDryingV3(unittest.TestCase):
     def setUp(self):
         self.parser = FilamentTagParsers.OctoScaleExtendedNtagTagParser()
         self.scan = ScanResult(
-            TagType.MIFARE_ULTRALIGHT, bytes.fromhex("045330AC3A0289")
+            TagType.MIFARE_ULTRALIGHT, bytes.fromhex("04D1D2D3D4D5D6")
         )
 
     def test_all_three_fields_round_trip(self):
@@ -2653,7 +2656,7 @@ class TestOctoScaleExtendedNfcvDryingV4(unittest.TestCase):
 
     def setUp(self):
         self.parser = FilamentTagParsers.OctoScaleExtendedNfcvTagParser()
-        self.scan = ScanResult(TagType.NFCV, bytes.fromhex("E00401532560D3EA"))
+        self.scan = ScanResult(TagType.NFCV, bytes.fromhex("E00401502F1A2B3C"))
 
     def test_all_three_fields_round_trip(self):
         filament = self.parser.parseTag(

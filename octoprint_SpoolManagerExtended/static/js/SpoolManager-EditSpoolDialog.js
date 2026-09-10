@@ -1183,7 +1183,12 @@ function SpoolManagerExtendedEditSpoolDialog() {
     // builds (or refreshes) an SVG checkerboard <pattern> in the filament svg's
     // <defs> and returns the url(#..) reference. tintColor (optional) is layered
     // half-transparent over the checkerboard to render "tinted translucent".
-    this._ensureTranslucentPattern = function (tintColor) {
+    //
+    // patternIndex exists because a transparent spool can carry up to three colors: each
+    // one needs its own tinted pattern, and an SVG fill can only reference a pattern by id.
+    // A single fixed id would mean every stripe shows whichever tint was built last - which
+    // is exactly how a three-color translucent spool used to render as one flat color.
+    this._ensureTranslucentPattern = function (tintColor, patternIndex) {
         var svgRoot = $("#spmx-svg-filament").closest("svg");
         var svgNS = "http://www.w3.org/2000/svg";
         var defs = svgRoot.children("defs");
@@ -1191,11 +1196,13 @@ function SpoolManagerExtendedEditSpoolDialog() {
             defs = $(document.createElementNS(svgNS, "defs"));
             svgRoot.prepend(defs);
         }
+        var patternId =
+            "translucentIconPattern" + (patternIndex != null ? "-" + patternIndex : "");
         // rebuild the pattern each call so the tint stays in sync
-        defs.find("#translucentIconPattern").remove();
+        defs.find("#" + patternId).remove();
         var cell = 24; // checker cell size in svg user units
         var pattern = document.createElementNS(svgNS, "pattern");
-        pattern.setAttribute("id", "translucentIconPattern");
+        pattern.setAttribute("id", patternId);
         pattern.setAttribute("patternUnits", "userSpaceOnUse");
         pattern.setAttribute("width", "" + cell * 2);
         pattern.setAttribute("height", "" + cell * 2);
@@ -1226,13 +1233,27 @@ function SpoolManagerExtendedEditSpoolDialog() {
             pattern.appendChild(tint);
         }
         defs.append(pattern);
-        return "url(#translucentIconPattern)";
+        return "url(#" + patternId + ")";
+    };
+
+    // Drops every pattern a previous call left behind. Needed because the number of
+    // patterns follows the spool's color count: going from a three-color translucent spool
+    // to a one-color one would otherwise leave -1 and -2 orphaned in <defs>.
+    this._clearTranslucentPatterns = function () {
+        $("#spmx-svg-filament")
+            .closest("svg")
+            .children("defs")
+            .find("[id^='translucentIconPattern']")
+            .remove();
     };
 
     this._reColorFilamentIcon = function (newColor) {
         var colorParts = SPOOLMANAGER_UTILS.parseSpoolColor(newColor);
         var rectColors;
         var strokeColor;
+        // unconditional: switching a spool from translucent to a solid color has to take
+        // the old patterns with it, not just stop referencing them
+        self._clearTranslucentPatterns();
         if (colorParts.isRainbow) {
             rectColors = [
                 "#ff2d2d",
@@ -1244,17 +1265,18 @@ function SpoolManagerExtendedEditSpoolDialog() {
             ];
             strokeColor = rectColors[0];
         } else if (colorParts.isTransparent) {
-            // translucent: render the filament as a checkerboard, optionally tinted
-            var tint = colorParts.isUntinted ? "" : colorParts.colors[0];
-            var patternRef = self._ensureTranslucentPattern(tint || null);
-            var svgIconT = $("#spmx-svg-filament");
-            svgIconT.children("rect").each(function () {
-                $(this).attr("fill", patternRef);
-            });
-            svgIconT.children("path").each(function () {
-                $(this).attr("stroke", tint ? tint : "#c8c8c8");
-            });
-            return;
+            // translucent: render the filament as a checkerboard, tinted with every color
+            // the spool carries (not just the first - a "transparent:#a;#b;#c" spool has to
+            // show all three, the same way the list swatch does via spmSpoolColorCss).
+            if (colorParts.isUntinted) {
+                rectColors = [self._ensureTranslucentPattern(null, 0)];
+                strokeColor = "#c8c8c8";
+            } else {
+                rectColors = colorParts.colors.map(function (color, colorIndex) {
+                    return self._ensureTranslucentPattern(color, colorIndex);
+                });
+                strokeColor = colorParts.colors[0];
+            }
         } else {
             var colors = colorParts.colors;
             if (colors.length === 1) {
@@ -2093,8 +2115,8 @@ function SpoolManagerExtendedEditSpoolDialog() {
             self.allToolIndices.push(toolIndex);
         }
 
-        // initial coloring
-        self._reColorFilamentIcon(self.spoolItemForEditing.color());
+        // (the icon is coloured at the end of this function, once the spool data is in -
+        //  see the _reColorFilamentIcon call below)
 
         // prospective id for the {id} display name variable preview (issue #49)
         self._refreshNextSpoolId();
@@ -2192,6 +2214,14 @@ function SpoolManagerExtendedEditSpoolDialog() {
         // the U1 RFID prefill) - snapshotting earlier would report all of that as if the
         // user had typed it.
         self._resetFormSnapshot();
+
+        // Colour the filament icon LAST, for the same reason: run earlier (as this used to,
+        // right at the top) and it paints the previous spool's colour - or SpoolItem's red
+        // DEFAULT_COLOR placeholder on a fresh form. The color.subscribe() handler was meant
+        // to correct that once the real value arrived, but knockout does not notify when an
+        // observable is re-assigned a primitive it already holds, so reopening the same
+        // spool left the stale paint on screen.
+        self._reColorFilamentIcon(self.spoolItemForEditing.color());
     };
 
     self.copySpoolItem = function () {
@@ -2284,6 +2314,10 @@ function SpoolManagerExtendedEditSpoolDialog() {
         self.spoolItemForEditing.isInActive(false);
         self.spoolItemForEditing.databaseId(null);
         self.spoolItemForEditing.isSpoolVisible(true);
+        // Repaint explicitly: copying replaces every form value while the dialog is already
+        // open, and color.subscribe() stays silent when the copied colour happens to equal
+        // the one already in the observable (same knockout behaviour as in showDialog).
+        self._reColorFilamentIcon(self.spoolItemForEditing.color());
     };
 
     // ----------------- begin: unsaved-changes detection
@@ -2617,6 +2651,7 @@ function SpoolManagerExtendedEditSpoolDialog() {
                         self._updateActiveSpoolItem(currentSpool);
                         // the form now shows the server's state, so that is the new baseline
                         self._resetFormSnapshot();
+                        self._reColorFilamentIcon(self.spoolItemForEditing.color());
                     } else {
                         self._closeSpoolDialog();
                         self.closeDialogHandler(true);

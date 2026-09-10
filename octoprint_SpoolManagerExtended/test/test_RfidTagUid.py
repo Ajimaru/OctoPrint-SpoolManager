@@ -68,16 +68,16 @@ class TestIsPlausibleTagUid(unittest.TestCase):
     def test_acceptsRealUidLengths(self):
         # 4 and 7 bytes are the two NFC-A cascade outcomes, 8 bytes is NFC-V.
         self.assertTrue(isPlausibleTagUid("A1B2C3D4"))
-        self.assertTrue(isPlausibleTagUid("04AC6F56CB2A81"))
+        self.assertTrue(isPlausibleTagUid("04A1B2C3D4E5F6"))
         self.assertTrue(isPlausibleTagUid("E00401502F1A2B3C"))
 
     def test_rejectsTruncatedAnticollisionResult(self):
         # The observed real-world case: cascade level 2 aborted, leaving CL1's 3 bytes.
-        self.assertFalse(isPlausibleTagUid("04AC6F"))
+        self.assertFalse(isPlausibleTagUid("04A1B2"))
 
     def test_rejectsOtherImpossibleLengths(self):
-        self.assertFalse(isPlausibleTagUid("AC6F"))
-        self.assertFalse(isPlausibleTagUid("04AC6F56CB"))
+        self.assertFalse(isPlausibleTagUid("A1B2"))
+        self.assertFalse(isPlausibleTagUid("04A1B2C3D4"))
 
     def test_rejectsEmptyAndNone(self):
         self.assertFalse(isPlausibleTagUid(""))
@@ -88,18 +88,18 @@ class TestTruncatedUidProducesWrongKey(unittest.TestCase):
     # The reason the length check has to exist at all.
 
     def test_fragmentDerivesDifferentKeyThanFullUid(self):
-        fullUid = normalizeCardUid("04AC6F56CB2A81")
-        fragment = normalizeCardUid("04AC6F")
+        fullUid = normalizeCardUid("04A1B2C3D4E5F6")
+        fragment = normalizeCardUid("04A1B2")
 
-        self.assertEqual("2A81", deriveRfidTagKey(fullUid))
-        self.assertEqual("AC6F", deriveRfidTagKey(fragment))
+        self.assertEqual("E5F6", deriveRfidTagKey(fullUid))
+        self.assertEqual("A1B2", deriveRfidTagKey(fragment))
         self.assertNotEqual(deriveRfidTagKey(fullUid), deriveRfidTagKey(fragment))
 
     def test_deriveRfidTagKeyAloneCannotDetectTruncation(self):
         # Every fragment long enough to reach deriveRfidTagKey yields a well-formed key,
         # so the derived value carries no evidence that the read was incomplete. This is
         # what makes the failure silent, and why callers must check the UID first.
-        for fragment in ("04AC6F", "AC6F", "04AC6F56CB"):
+        for fragment in ("04A1B2", "A1B2", "04A1B2C3D4"):
             key = deriveRfidTagKey(normalizeCardUid(fragment))
             self.assertIsNotNone(key)
             self.assertEqual(4, len(key))

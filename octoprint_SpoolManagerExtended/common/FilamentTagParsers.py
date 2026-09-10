@@ -1123,8 +1123,8 @@ class SnapmakerTagParser(object):
 # Classic, NTAG/Ultralight, NFC-V). The firmware builds the on-tag bytes (see
 # TagFormats.py's module docstring); this is the read side that was missing entirely -
 # the plugin could write these tags but never parse one back. Layout reverse-engineered
-# together with the firmware's own author against real hardware dumps (Mifare Classic
-# tag 37, NTAG215 UID 045330AC3A0289, an ICODE NFC-V tag) - not from the (nonexistent)
+# together with the firmware's own author against real hardware dumps (one tag of each
+# carrier: Mifare Classic, NTAG215, ICODE NFC-V) - not from the (nonexistent)
 # on-tag documentation, since the firmware is this format's only other implementation.
 #
 # All three carriers share the same *field semantics* (scalings, sentinels, epoch-day and
@@ -1698,7 +1698,7 @@ class OctoScaleExtendedNtagTagParser(object):
     eight string fields sit in one buffer instead of two, remainingWeight/cost/lengths/
     dates are present from v1 (no v2/v3 split as on Classic), and the CRC covers a fixed
     range regardless of version. Verified byte-for-byte against a real NTAG215 dump
-    (UID 045330AC3A0289, spool 37) including its leftover openSpool NDEF JSON past the
+    (with an anonymised UID) including its leftover openSpool NDEF JSON past the
     commit marker - proof that a write here does not erase the tag first.
 
     This carrier grows by pushing the string buffer further back, which makes the string
@@ -2016,7 +2016,7 @@ class OctoScaleExtendedNfcvTagParser(object):
     string fields exist (vendor/material/colorName), and remainingWeight, cost, code, the
     two length fields and every date field are simply absent from this layout - they are
     never on an NFC-V extended tag, not merely unset. Verified against a real ICODE tag
-    written with spool 37's data and dumped back (databaseId, weights and all three
+    written from SpoolManager and dumped back (databaseId, weights and all three
     strings matched the write exactly).
 
     Unlike those, a primary RGB color DOES exist on this carrier (physBuf[10..12],
@@ -2338,7 +2338,7 @@ FILAMENT_TAG_PARSERS = {
         # firmware's /nfcreadstart returns only the requested sectors, back-to-back, with
         # no padding for the ones skipped - a sector list starting at 1 makes the response
         # begin at block 4, not block 0, silently shifting every absolute offset this
-        # parser uses by 64 bytes. Caught live on hardware (spool 110): the read itself
+        # parser uses by 64 bytes. Caught live on hardware: the read itself
         # succeeded (all nine sectors authenticated, 576 bytes back, legacy id "110"
         # readable at byte 0 of the response) but parseTag() rejected the shifted data as
         # not matching the magic - the *reported* "authentication failed" was a red
