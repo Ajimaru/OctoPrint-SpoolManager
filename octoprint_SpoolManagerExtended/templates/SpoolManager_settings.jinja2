@@ -1039,6 +1039,9 @@ FPE;	2.16
                                     <small class="help-block" style="margin-top: 4px; border-left: 2px solid #ddd; padding-left: 8px;">
                                         {{ _('Up to 3 colors, an independent transparent flag, and a rainbow flag - matches the colors/transparent/rainbow options in the color picker. A 6-digit hex with no alpha stores as-is; an 8-digit hex (alpha byte) is accepted but the alpha is not stored on any tag, only RGB.') }}
                                     </small>
+                                    <small class="help-block" style="margin-top: 4px; border-left: 2px solid #ddd; padding-left: 8px;">
+                                        {{ _('Drying temp / time and TD need OctoScale firmware new enough to write Extended v5 (Mifare Classic), v3 (NTAG) or v4 (NFC-V). Tags written by older firmware simply lack those three fields - they are read back as empty, never as 0.') }}
+                                    </small>
                                 </div>
                                 <div class="span6">
                                     <strong style="font-size: 12px;">{{ _('OpenSpool') }}</strong><br>

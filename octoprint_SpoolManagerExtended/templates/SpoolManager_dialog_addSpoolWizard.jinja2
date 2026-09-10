@@ -427,7 +427,7 @@
                             <input type="number" step="1" min="0" class="input-mini text-right" placeholder="hours" data-bind="value: spoolItemForCreation.dryingTime">
                             <span class="add-on">h</span>
                         </div>
-                        <span class="help-block"><small>{{ _('Optional. Most vendor RFID tags carry these values.') }}</small></span>
+                        <span class="help-block"><small>{{ _('Optional. Most vendor RFID tags carry these values. Written to Extended, OpenPrintTag and TigerTag tags; OpenSpool has no field for them.') }}</small></span>
                     </div>
                 </div>
                 {# TD is opt-in, same as in the edit dialog: a niche value most users cannot
@@ -439,7 +439,7 @@
                             <input type="number" step="0.1" min="0.1" max="100" class="input-mini text-right" data-bind="value: spoolItemForCreation.td">
                             <span class="add-on">TD</span>
                         </div>
-                        <span class="help-block"><small>{{ _('Optional. Transmission Distance, used by HueForge and OrcaSlicer: 0.1 (most opaque) to 100 (most transparent).') }}</small></span>
+                        <span class="help-block"><small>{{ _('Optional. Transmission Distance, used by HueForge and OrcaSlicer: 0.1 (most opaque) to 100 (most transparent). Only Extended and OpenPrintTag tags have a field for it - TigerTag and OpenSpool do not.') }}</small></span>
                     </div>
                 </div>
                 <div class="control-group">

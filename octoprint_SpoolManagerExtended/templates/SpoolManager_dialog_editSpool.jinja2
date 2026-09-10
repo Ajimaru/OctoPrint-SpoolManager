@@ -470,7 +470,7 @@ Example: {material}-{color}-{id} becomes PETG-Silver-42."><i class="fas fa-info-
                                     <span class="add-on">TD</span>
                                 </div>
                                 <span class="spm-number-invalid-hint" data-bind="visible: spoolDialog.invalidNumberFields().indexOf('td') !== -1">Please enter a valid number</span>
-                                <span class="help-block"><small>Optional. Transmission Distance, used by HueForge and OrcaSlicer: 0.1 (most opaque) to 100 (most transparent).</small></span>
+                                <span class="help-block"><small>Optional. Transmission Distance, used by HueForge and OrcaSlicer: 0.1 (most opaque) to 100 (most transparent). Only Extended and OpenPrintTag tags have a field for it - TigerTag and OpenSpool do not.</small></span>
                             </div>
                         </div>
 
@@ -547,7 +547,7 @@ Example: {material}-{color}-{id} becomes PETG-Silver-42."><i class="fas fa-info-
                                 <div data-bind="visible: !spoolDialog.simpleMode()"><sup>5</sup><small>Temperature offset enabled via Plugin Settings -> temperature tab</small></div>
                                 <div><sup>6</sup><small>Variant on top of the base material (Silk, Matte, ...). Read from vendor tags; separate from Material so the density lookup and material filter keep working</small></div>
                                 <div data-bind="visible: !spoolDialog.simpleMode()"><sup>7</sup><small>Optional - leave blank to use the single temperature above for both ends of the range</small></div>
-                                <div data-bind="visible: !spoolDialog.simpleMode()"><sup>8</sup><small>Optional - most vendor RFID tags carry these values</small></div>
+                                <div data-bind="visible: !spoolDialog.simpleMode()"><sup>8</sup><small>Optional - most vendor RFID tags carry these values. Written to Extended, OpenPrintTag and TigerTag tags; OpenSpool has no field for them.</small></div>
                              </label>
                         </div>
 

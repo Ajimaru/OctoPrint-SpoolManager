@@ -173,12 +173,17 @@ var OCTOSCALE_TAG_DIFF_FIELDS = [
         unit: "°C"
     },
     {key: "dryingTemperature", label: "Drying temperature", unit: "°C"},
-    // The tag carries minutes (OpenPrintTag spec key 58), SpoolManager stores hours - so
-    // the tag value has to be divided before it can be compared with, or shown next to,
-    // the spool's own value. Without this a spool set to 8 h would diff against its own
-    // tag as "480 h -> 8 h".
+    // The tag carries minutes, SpoolManager stores hours - so the tag value has to be
+    // divided before it can be compared with, or shown next to, the spool's own value.
+    // Without this a spool set to 8 h would diff against its own tag as "480 h -> 8 h".
+    // True for both formats that carry the field: OpenPrintTag (spec key 58) and our own
+    // Extended format (Classic v5 / NTAG v3 / NFC-V v4), which stores minutes for exactly
+    // this reason - it keeps the firmware free of any unit conversion.
     {key: "dryingTime", label: "Drying time", unit: "h", tagValueDivisor: 60},
-    // No unit: TD is a dimensionless opacity number (0.1-100), not a length.
+    // No unit: TD is a dimensionless opacity number (0.1-100), not a length. No divisor
+    // either: the Extended format stores td*100 on the tag, but that encoding ends at the
+    // byte boundary - /nfcprobe echoes the plain float (confirmed against the firmware),
+    // so there is nothing to undo here.
     {key: "td", label: "Transmission distance (TD)"},
     {key: "remainingWeight", label: "Remaining weight", unit: "g"},
     {key: "totalLength", label: "Total length", unit: "mm"},

@@ -1178,6 +1178,9 @@ def _classicExtendedImage(
     color2Rgb=None,
     color3Rgb=None,
     colorFlags=0,
+    dryingTemperature=None,
+    dryingTimeMinutes=None,
+    td100=None,
 ):
     def blk(n):
         return n * 16
@@ -1208,6 +1211,7 @@ def _classicExtendedImage(
     isV2 = version >= 2
     isV3 = version >= 3
     isV4 = version >= 4
+    isV5 = version >= 5
 
     if isV2:
         img[blk(10) + 0] = bedMin
@@ -1233,6 +1237,22 @@ def _classicExtendedImage(
         struct.pack_into("<H", img, blk(17) + 2, lastUseMinute)
         struct.pack_into("<H", img, blk(17) + 4, purchasedOnMinute)
 
+    if isV5:
+        # Unset fields carry the format's sentinels, not zero - a v5 tag written for a
+        # spool with no drying data must be indistinguishable from "not set", and 0 C /
+        # 0 min / td 0.0 are all values a user could legitimately mean.
+        img[blk(17) + 6] = 0xFF if dryingTemperature is None else dryingTemperature
+        struct.pack_into(
+            "<H",
+            img,
+            blk(17) + 8,
+            0xFFFF if dryingTimeMinutes is None else dryingTimeMinutes,
+        )
+        struct.pack_into("<H", img, blk(17) + 10, 0xFFFF if td100 is None else td100)
+
+    # NOTE: the v5 fields above are deliberately absent from the CRC below - block 17 has
+    # never been covered. Keep it that way; test_v5_crc_coverage_is_unchanged_from_v4
+    # pins it.
     covered = bytes(img[blk(8) : blk(8) + 16]) + bytes(img[blk(9) : blk(9) + 15])
     if isV4:
         covered += bytes(img[blk(10) : blk(10) + 9])
@@ -1354,9 +1374,9 @@ class TestOctoScaleExtendedTagParser(unittest.TestCase):
         self.assertIsNone(self.parser.parseTag(self.scan, bytes(1024)))
 
     def test_rejects_an_unknown_future_version(self):
-        # v4 is now a known version (multi-color extension) - v5 is the current unknown.
+        # v5 is now a known version (drying/td extension) - v6 is the current unknown.
         data = bytearray(_classicExtendedImage())
-        data[8 * 16 + 2] = 5
+        data[8 * 16 + 2] = 6
         self.assertIsNone(self.parser.parseTag(self.scan, bytes(data)))
 
     def test_rejects_truncated_input(self):
@@ -1460,10 +1480,14 @@ def _ntagExtendedV2Image(
     color2Rgb=None,
     color3Rgb=None,
     colorFlags=0,
+    dryingTemperature=None,
+    dryingTimeMinutes=None,
+    td100=None,
 ):
-    """Synthetic v2 (multi-color) NTAG image - unlike _ntagExtendedRealDump() (a real,
-    pre-v2 capture), this exercises the new colors-2/3 + flags fields at pages 19-20 and
-    the version-dependent string start (page 21 on v2, was 19 on v1)."""
+    """Synthetic v2/v3 NTAG image - unlike _ntagExtendedRealDump() (a real, pre-v2
+    capture), this exercises the colors-2/3 + flags fields at pages 19-20, the v3
+    drying/td fields at pages 21-22, and the version-dependent string start (page 19 on
+    v1, 21 on v2, 23 on v3)."""
     img = bytearray(60 * 4)  # generous - 8 strings plus headroom for the marker scan
 
     def pg(n):
@@ -1476,6 +1500,7 @@ def _ntagExtendedV2Image(
     img[pg(11) : pg(11) + 3] = bytes(rgb)
 
     isV2 = version >= 2
+    isV3 = version >= 3
     if isV2:
         if color2Rgb is not None:
             img[pg(19) : pg(19) + 3] = bytes(color2Rgb)
@@ -1483,10 +1508,23 @@ def _ntagExtendedV2Image(
         if color3Rgb is not None:
             img[pg(20) : pg(20) + 3] = bytes(color3Rgb)
 
+    if isV3:
+        # Sentinels, not zero - see _classicExtendedImage for the reasoning.
+        img[pg(21)] = 0xFF if dryingTemperature is None else dryingTemperature
+        struct.pack_into(
+            "<H",
+            img,
+            pg(21) + 2,
+            0xFFFF if dryingTimeMinutes is None else dryingTimeMinutes,
+        )
+        struct.pack_into("<H", img, pg(22), 0xFFFF if td100 is None else td100)
+
+    # CRC stays the fixed 36 bytes over pages 4..12 on every version - the v3 fields above
+    # sit outside it, exactly like v2's colors do.
     crcCovered = bytes(img[pg(4) : pg(4) + 36])
     img[pg(13)] = FilamentTagBinary.crc8(crcCovered)
 
-    stringsStartPage = 21 if isV2 else 19
+    stringsStartPage = 23 if isV3 else (21 if isV2 else 19)
     off = pg(stringsStartPage)
 
     def writeString(offset, s):
@@ -1661,7 +1699,12 @@ def _nfcvExtendedImage(
     color2Rgb=None,
     color3Rgb=None,
     colorFlags=0,
+    dryingTemperature=None,
+    dryingTimeMinutes=None,
+    td100=None,
 ):
+    # 112 bytes = through block 27, the last block this format uses (v4's td). A future
+    # version adding fields past block 27 has to grow this.
     img = bytearray(112)
     img[3 * 4 : 3 * 4 + 2] = b"OS"
     img[3 * 4 + 2] = version
@@ -1683,6 +1726,17 @@ def _nfcvExtendedImage(
         img[24 * 4 + 3] = colorFlags
         if color3Rgb is not None:
             img[25 * 4 : 25 * 4 + 3] = bytes(color3Rgb)
+
+    if version >= 4:
+        # Sentinels, not zero - see _classicExtendedImage for the reasoning.
+        img[26 * 4] = 0xFF if dryingTemperature is None else dryingTemperature
+        struct.pack_into(
+            "<H",
+            img,
+            26 * 4 + 2,
+            0xFFFF if dryingTimeMinutes is None else dryingTimeMinutes,
+        )
+        struct.pack_into("<H", img, 27 * 4, 0xFFFF if td100 is None else td100)
 
     if stringsPresent:
         off = 11 * 4
@@ -1751,8 +1805,8 @@ class TestOctoScaleExtendedNfcvTagParser(unittest.TestCase):
         self.assertIsNone(self.parser.parseTag(self.scan, bytes(empty)))
 
     def test_rejects_an_unknown_version(self):
-        # v3 is now a known version (multi-color extension) - v4 is the current unknown.
-        data = bytearray(_nfcvExtendedImage(version=4))
+        # v4 is now a known version (drying/td extension) - v5 is the current unknown.
+        data = bytearray(_nfcvExtendedImage(version=5))
         self.assertIsNone(self.parser.parseTag(self.scan, bytes(data)))
 
     def test_rejects_wrong_magic(self):
@@ -2095,9 +2149,9 @@ class TestOctoScaleExtendedClassicMultiColorV4(unittest.TestCase):
         data[10 * 16 + 2] ^= 0xFF  # flip a byte inside the new v4 CRC range
         self.assertIsNone(self.parser.parseTag(self.scan, bytes(data)))
 
-    def test_unknown_version_five_is_rejected(self):
-        data = bytearray(_classicExtendedImage(version=4))
-        data[8 * 16 + 2] = 5
+    def test_unknown_version_six_is_rejected(self):
+        data = bytearray(_classicExtendedImage(version=5))
+        data[8 * 16 + 2] = 6
         self.assertIsNone(self.parser.parseTag(self.scan, bytes(data)))
 
 
@@ -2150,9 +2204,9 @@ class TestOctoScaleExtendedNtagMultiColorV2(unittest.TestCase):
         # color, same as the Classic v3/NFC-V v2 cases (see those tests' comments).
         self.assertEqual("#FD7412", filament.octoscaleExtendedFields["color"])
 
-    def test_unknown_version_three_is_rejected(self):
-        data = bytearray(_ntagExtendedV2Image(version=2))
-        data[4 * 4 + 2] = 3
+    def test_unknown_version_four_is_rejected(self):
+        data = bytearray(_ntagExtendedV2Image(version=3))
+        data[4 * 4 + 2] = 4
         self.assertIsNone(self.parser.parseTag(self.scan, bytes(data)))
 
 
@@ -2194,9 +2248,9 @@ class TestOctoScaleExtendedNfcvMultiColorV3(unittest.TestCase):
         self.assertIsNotNone(filament)
         self.assertEqual("#112233", filament.octoscaleExtendedFields["color"])
 
-    def test_unknown_version_four_is_rejected(self):
-        data = bytearray(_nfcvExtendedImage(version=3))
-        data[3 * 4 + 2] = 4
+    def test_unknown_version_five_is_rejected(self):
+        data = bytearray(_nfcvExtendedImage(version=4))
+        data[3 * 4 + 2] = 5
         self.assertIsNone(self.parser.parseTag(self.scan, bytes(data)))
 
     def test_version_one_is_rejected_minimum_is_two(self):
@@ -2416,6 +2470,240 @@ class TestOpenPrintTagCBORCodec(unittest.TestCase):
         fields = {"drying_time": 480}
         values = OpenPrintTagModule.fieldsToSpoolValues(fields)
         self.assertEqual(8, values["dryingTime"])
+
+
+class TestOctoScaleExtendedClassicDryingV5(unittest.TestCase):
+    """v5 on Mifare Classic: dryingTemperature/dryingTime/td in block 17's free tail."""
+
+    def setUp(self):
+        self.parser = FilamentTagParsers.OctoScaleExtendedTagParser()
+        self.scan = ScanResult(TagType.MIFARE_CLASSIC_1K, bytes.fromhex("DEADBEEF"))
+
+    def test_all_three_fields_round_trip(self):
+        filament = self.parser.parseTag(
+            self.scan,
+            _classicExtendedImage(
+                version=5, dryingTemperature=65, dryingTimeMinutes=480, td100=2450
+            ),
+        )
+        ext = filament.octoscaleExtendedFields
+        self.assertEqual(65, ext["dryingTemperature"])
+        self.assertEqual(8, ext["dryingTime"])
+        self.assertEqual(24.5, ext["td"])
+
+    def test_drying_time_is_hours_not_minutes(self):
+        # Regression guard for the TigerTag factor-60 bug: the tag stores MINUTES, every
+        # consumer above this parser expects HOURS. If someone "simplifies" the division
+        # away, 8 hours becomes 480 hours and this fails loudly.
+        filament = self.parser.parseTag(
+            self.scan, _classicExtendedImage(version=5, dryingTimeMinutes=480)
+        )
+        ext = filament.octoscaleExtendedFields
+        self.assertEqual(8, ext["dryingTime"])
+        self.assertNotEqual(480, ext["dryingTime"])
+
+    def test_sentinels_are_absent_not_zero(self):
+        # A v5 tag written for a spool with no drying data. Absent, never 0 - a 0 would
+        # overwrite a real value on import ("never clear an existing value").
+        filament = self.parser.parseTag(self.scan, _classicExtendedImage(version=5))
+        ext = filament.octoscaleExtendedFields
+        self.assertNotIn("dryingTemperature", ext)
+        self.assertNotIn("dryingTime", ext)
+        self.assertNotIn("td", ext)
+
+    def test_v4_tag_still_parses_without_the_new_fields(self):
+        filament = self.parser.parseTag(self.scan, _classicExtendedImage(version=4))
+        self.assertIsNotNone(filament)
+        self.assertEqual("PETG", filament.type)
+        ext = filament.octoscaleExtendedFields
+        self.assertNotIn("dryingTemperature", ext)
+        self.assertNotIn("dryingTime", ext)
+        self.assertNotIn("td", ext)
+
+    def test_truncated_v5_tag_degrades_to_absent(self):
+        # Block 17 carries no CRC, so a short read must lose the fields rather than
+        # reject the tag or report garbage.
+        data = _classicExtendedImage(version=5, dryingTemperature=65, td100=2450)
+        truncated = data[: 17 * 16 + 6]
+        filament = self.parser.parseTag(self.scan, truncated)
+        self.assertIsNotNone(filament)
+        self.assertNotIn("dryingTemperature", filament.octoscaleExtendedFields)
+
+    def test_v5_crc_coverage_is_unchanged_from_v4(self):
+        # The inverse of test_v4_crc_uses_the_extended_56_byte_coverage: block 17 is
+        # deliberately OUTSIDE the CRC, so corrupting a drying byte must NOT invalidate
+        # the tag. Extending coverage to reach block 17 would break every existing v4
+        # tag - this test fails if someone tries.
+        data = bytearray(
+            _classicExtendedImage(version=5, dryingTemperature=65, td100=2450)
+        )
+        data[17 * 16 + 6] ^= 0xFF
+        self.assertIsNotNone(self.parser.parseTag(self.scan, bytes(data)))
+
+    def test_td_rounding_covers_the_documented_range(self):
+        lowest = self.parser.parseTag(
+            self.scan, _classicExtendedImage(version=5, td100=10)
+        )
+        highest = self.parser.parseTag(
+            self.scan, _classicExtendedImage(version=5, td100=10000)
+        )
+        self.assertEqual(0.1, lowest.octoscaleExtendedFields["td"])
+        self.assertEqual(100.0, highest.octoscaleExtendedFields["td"])
+
+
+class TestOctoScaleExtendedNtagDryingV3(unittest.TestCase):
+    """v3 on NTAG: drying/td at pages 21-22, string buffer pushed on to page 23."""
+
+    def setUp(self):
+        self.parser = FilamentTagParsers.OctoScaleExtendedNtagTagParser()
+        self.scan = ScanResult(
+            TagType.MIFARE_ULTRALIGHT, bytes.fromhex("045330AC3A0289")
+        )
+
+    def test_all_three_fields_round_trip(self):
+        filament = self.parser.parseTag(
+            self.scan,
+            _ntagExtendedV2Image(
+                version=3, dryingTemperature=65, dryingTimeMinutes=480, td100=2450
+            ),
+        )
+        ext = filament.octoscaleExtendedFields
+        self.assertEqual(65, ext["dryingTemperature"])
+        self.assertEqual(8, ext["dryingTime"])
+        self.assertEqual(24.5, ext["td"])
+
+    def test_drying_time_is_hours_not_minutes(self):
+        filament = self.parser.parseTag(
+            self.scan, _ntagExtendedV2Image(version=3, dryingTimeMinutes=480)
+        )
+        self.assertEqual(8, filament.octoscaleExtendedFields["dryingTime"])
+        self.assertNotEqual(480, filament.octoscaleExtendedFields["dryingTime"])
+
+    def test_string_buffer_starts_at_page_23_on_v3(self):
+        # THE test for this carrier. v3 inserts 8 bytes at pages 21-22, so the strings
+        # move on again (19 -> 21 on v2 -> 23 on v3). If the parser kept the v2 start it
+        # would read the drying bytes as a length-prefixed string and hand back garbage
+        # for vendor/material - corrupting fields that already worked.
+        filament = self.parser.parseTag(
+            self.scan,
+            _ntagExtendedV2Image(
+                version=3,
+                vendor="DistinctVendor",
+                material="PA6-CF",
+                dryingTemperature=65,
+                dryingTimeMinutes=480,
+                td100=2450,
+            ),
+        )
+        self.assertEqual("DistinctVendor", filament.manufacturer)
+        self.assertEqual("PA6-CF", filament.type)
+
+    def test_v2_tag_still_reads_strings_from_page_21(self):
+        filament = self.parser.parseTag(
+            self.scan, _ntagExtendedV2Image(version=2, vendor="V2Vendor")
+        )
+        self.assertEqual("V2Vendor", filament.manufacturer)
+        self.assertNotIn("dryingTemperature", filament.octoscaleExtendedFields)
+
+    def test_short_v3_read_is_rejected_rather_than_parsed_with_a_v2_string_start(self):
+        # Companion to test_string_buffer_starts_at_page_23_on_v3, covering what happens
+        # when a v3 tag arrives truncated.
+        #
+        # On this carrier the strings sit AFTER the new drying bytes, so any read short
+        # enough to miss the drying guard is also short of the string buffer and its
+        # commit marker. parseTag then returns None at the marker scan - it never reaches
+        # a point where a wrong string start could invent a vendor out of 0xFE. Rejecting
+        # is the correct outcome: a partial tag yields nothing rather than plausible
+        # garbage.
+        #
+        # Worth stating explicitly, because the obvious defensive test here - "truncate a
+        # v3 tag and assert the vendor is still right" - cannot fail no matter how the
+        # string start is computed, and would give false confidence. The real protection
+        # for the start page is the unconditional assignment in parseTag() plus the
+        # full-length test above.
+        full = _ntagExtendedV2Image(
+            version=3,
+            vendor="TruncVendor",
+            material="PETG",
+            dryingTemperature=0xFE,
+            dryingTimeMinutes=480,
+            td100=2450,
+        )
+        for cut in (22 * 4 + 3, 23 * 4, 24 * 4):
+            self.assertIsNone(
+                self.parser.parseTag(self.scan, full[:cut]),
+                "a v3 read of %d bytes must be rejected, not parsed" % cut,
+            )
+        # The same tag at full length parses correctly - proving the rejections above are
+        # about length, not about the fixture being broken.
+        self.assertEqual(
+            "TruncVendor", self.parser.parseTag(self.scan, full).manufacturer
+        )
+
+    def test_sentinels_are_absent_not_zero(self):
+        filament = self.parser.parseTag(self.scan, _ntagExtendedV2Image(version=3))
+        ext = filament.octoscaleExtendedFields
+        self.assertNotIn("dryingTemperature", ext)
+        self.assertNotIn("dryingTime", ext)
+        self.assertNotIn("td", ext)
+
+
+class TestOctoScaleExtendedNfcvDryingV4(unittest.TestCase):
+    """v4 on NFC-V: drying/td at blocks 26-27, after the v3 colors."""
+
+    def setUp(self):
+        self.parser = FilamentTagParsers.OctoScaleExtendedNfcvTagParser()
+        self.scan = ScanResult(TagType.NFCV, bytes.fromhex("E00401532560D3EA"))
+
+    def test_all_three_fields_round_trip(self):
+        filament = self.parser.parseTag(
+            self.scan,
+            _nfcvExtendedImage(
+                version=4, dryingTemperature=65, dryingTimeMinutes=480, td100=2450
+            ),
+        )
+        ext = filament.octoscaleExtendedFields
+        self.assertEqual(65, ext["dryingTemperature"])
+        self.assertEqual(8, ext["dryingTime"])
+        self.assertEqual(24.5, ext["td"])
+
+    def test_drying_time_is_hours_not_minutes(self):
+        filament = self.parser.parseTag(
+            self.scan, _nfcvExtendedImage(version=4, dryingTimeMinutes=480)
+        )
+        self.assertEqual(8, filament.octoscaleExtendedFields["dryingTime"])
+        self.assertNotEqual(480, filament.octoscaleExtendedFields["dryingTime"])
+
+    def test_strings_are_unaffected_by_the_new_fields(self):
+        # Unlike NTAG, this carrier's strings sit BEFORE the new blocks (block 11 onward),
+        # so nothing shifts. Pinned so a future field addition does not quietly move them.
+        filament = self.parser.parseTag(
+            self.scan,
+            _nfcvExtendedImage(version=4, vendor="NfcvVendor", dryingTemperature=65),
+        )
+        self.assertEqual("NfcvVendor", filament.manufacturer)
+
+    def test_v3_tag_still_parses_without_the_new_fields(self):
+        filament = self.parser.parseTag(self.scan, _nfcvExtendedImage(version=3))
+        self.assertIsNotNone(filament)
+        ext = filament.octoscaleExtendedFields
+        self.assertNotIn("dryingTemperature", ext)
+        self.assertNotIn("td", ext)
+
+    def test_short_read_degrades_to_absent(self):
+        # This carrier has no CRC at all and the read length is whatever the reader's
+        # block walk returned - a tag that stops before block 27 must yield "absent".
+        data = _nfcvExtendedImage(version=4, dryingTemperature=65, td100=2450)
+        filament = self.parser.parseTag(self.scan, data[: 26 * 4])
+        self.assertIsNotNone(filament)
+        self.assertNotIn("dryingTemperature", filament.octoscaleExtendedFields)
+
+    def test_sentinels_are_absent_not_zero(self):
+        filament = self.parser.parseTag(self.scan, _nfcvExtendedImage(version=4))
+        ext = filament.octoscaleExtendedFields
+        self.assertNotIn("dryingTemperature", ext)
+        self.assertNotIn("dryingTime", ext)
+        self.assertNotIn("td", ext)
 
 
 if __name__ == "__main__":
