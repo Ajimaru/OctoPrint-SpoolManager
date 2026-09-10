@@ -97,6 +97,9 @@ const browserGlobals = {
     SpoolManagerExtendedImportDialog: "writable",
     SpoolManagerOctoScaleWeighing: "writable",
     SpoolManagerOctoScaleTagWriter: "writable",
+    // shared field/label table from SpoolManager-OctoScale.js, also used by the edit
+    // dialog's unsaved-changes warnings so the labels stay in one place
+    OCTOSCALE_TAG_DIFF_FIELDS: "writable",
     SpoolManagerExtendedSpoolSelectionTableComp: "writable",
     SpoolManagerExtendedDatabaseConnectionProblemDialog: "writable",
     SpoolManagerExtendedResetSettingsUtilV3: "writable",

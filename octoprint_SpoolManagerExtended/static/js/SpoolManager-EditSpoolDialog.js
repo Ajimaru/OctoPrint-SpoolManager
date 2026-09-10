@@ -1345,6 +1345,40 @@ function SpoolManagerExtendedEditSpoolDialog() {
             if (writer.canAttemptWrite() != true) {
                 return;
             }
+            // Unsaved edits first, before the overwrite/foreign-tag questions: the write
+            // takes its data from the *stored* spool (writeTag sends only the databaseId,
+            // the backend re-loads it), so unsaved changes would silently not make it onto
+            // the tag - while the diff table above the button shows them, because it reads
+            // the live form. Asked up front so nobody clicks through two confirmations
+            // before finding out they have to save first.
+            var unsavedChanges = self._getUnsavedChanges();
+            if (unsavedChanges.length > 0) {
+                SPOOLMANAGER_DIALOGS.confirm({
+                    title: "Unsaved changes",
+                    message:
+                        self._buildUnsavedChangesMessage(unsavedChanges) +
+                        "<p>Only saved values are written to the tag.</p>",
+                    question: "Save the spool now and then write the tag?",
+                    cancel: "Cancel",
+                    proceed: "Save and write",
+                    proceedClass: "primary"
+                }).then(function (confirmed) {
+                    if (confirmed != true) {
+                        return;
+                    }
+                    self.saveSpoolItem({
+                        // the tag writer lives in this dialog and polls the device - closing
+                        // it here would tear down the very write we are about to perform
+                        keepDialogOpen: true,
+                        onSaved: function () {
+                            // nothing is unsaved any more, so this re-entry falls through
+                            // to the overwrite/foreign-tag handling below
+                            self.writeTagWithConfirmation();
+                        }
+                    });
+                });
+                return;
+            }
             if (
                 writer.needsOverwriteConfirmation() &&
                 writer.overwriteConfirmed() != true
@@ -1411,6 +1445,13 @@ function SpoolManagerExtendedEditSpoolDialog() {
             writer.writeTag();
         };
 
+        // Keep the "these values are not saved yet" hint above the diff table honest. The
+        // diff recomputes whenever the tag poll or a form field changes, which is exactly
+        // when the hint is on screen and might have gone stale.
+        self.octoScaleTagWriter.tagValueDiff.subscribe(function () {
+            self.refreshUnsavedChangesFlag();
+        });
+
         // On an existing spool, a successful tag read jumps straight to the field-by-field
         // review dialog instead of leaving the inline "Use these values" summary sitting in
         // the form waiting for a second click - the inline table only exists for the
@@ -1427,8 +1468,20 @@ function SpoolManagerExtendedEditSpoolDialog() {
             }
         });
 
+        // Guard against losing edits: X and "Close" carry data-dismiss="modal" and Esc is
+        // handled by Bootstrap itself, so none of them ever reaches our code - a click
+        // handler on the buttons would miss at least one of the three. The modal's own
+        // "hide" event is the one point all of them pass through, and it can be cancelled.
+        self.spoolDialog.on("hide", function (event) {
+            if (self._confirmDiscardUnsavedChanges() !== true) {
+                event.preventDefault();
+            }
+        });
+
         // closing the dialog (Save, Close, Esc) must not leave the device pollers running
         self.spoolDialog.on("hidden", function () {
+            // the close went through - the next one has to prove itself again
+            self._allowDialogClose = false;
             closeOverwriteConfirmDialog();
             self.closeReadTagImportDialog();
             self.octoScaleWeighing.stop();
@@ -2133,6 +2186,12 @@ function SpoolManagerExtendedEditSpoolDialog() {
             });
 
         self.autoUpdateEnabled = true;
+        // Baseline for the unsaved-changes detection. Taken here at the very end rather
+        // than in _updateActiveSpoolItem(), because showDialog() keeps writing to the form
+        // afterwards (drivenScope, the default diameter and purchase date for new spools,
+        // the U1 RFID prefill) - snapshotting earlier would report all of that as if the
+        // user had typed it.
+        self._resetFormSnapshot();
     };
 
     self.copySpoolItem = function () {
@@ -2227,6 +2286,247 @@ function SpoolManagerExtendedEditSpoolDialog() {
         self.spoolItemForEditing.isSpoolVisible(true);
     };
 
+    // ----------------- begin: unsaved-changes detection
+    //
+    // Two problems shared one root cause: the dialog had no idea whether anything had been
+    // edited. Writing an NFC tag sends only the databaseId and the server re-loads the
+    // *stored* spool (see SpoolManagerAPI.writeOctoScaleTag), so unsaved edits silently did
+    // not reach the tag - while the diff table right above the button showed those very
+    // edits, because it reads the live observables. Closing the dialog dropped them without
+    // a word. Both are fixed from one snapshot taken once the form has been populated.
+    //
+    // Whitelist, not blacklist: only fields the server actually persists are compared
+    // (mirrors _updateSpoolModelFromJSONData in SpoolManagerAPI.py). The view model carries
+    // plenty of observables that are pure UI state (isSpoolVisible, drivenScope), derived
+    // (absoluteTemperature, the *DateKO/*TimeKO split inputs, finishSelection/
+    // finishCustomText feeding "finish") or catalog data (allLabels) - comparing those
+    // would report changes the user never made. A blacklist would silently start producing
+    // false positives the day someone adds another derived observable; this way a newly
+    // added *persisted* field is merely not watched yet, which is the harmless direction.
+    //
+    // Note the date fields: the server reads firstUseKO/lastUseKO/purchasedOnKO, NOT
+    // firstUse/lastUse/purchasedOn (those are the picker-owned display observables), so
+    // the KO ones are what has to be watched here.
+    self._dirtyRelevantFields = [
+        "isTemplate",
+        "isActive",
+        "displayName",
+        "vendor",
+        "material",
+        "materialCharacteristic",
+        "density",
+        "diameter",
+        "diameterTolerance",
+        "colorName",
+        "color",
+        "finish",
+        "flowRateCompensation",
+        "temperature",
+        "minTemperature",
+        "maxTemperature",
+        "bedTemperature",
+        "minBedTemperature",
+        "maxBedTemperature",
+        "enclosureTemperature",
+        "dryingTemperature",
+        "dryingTime",
+        "td",
+        "offsetTemperature",
+        "offsetBedTemperature",
+        "offsetEnclosureTemperature",
+        "totalWeight",
+        "spoolWeight",
+        "remainingWeight",
+        "totalLength",
+        "usedLength",
+        "usedWeight",
+        "code",
+        "rfidTagKey",
+        "batchNumber",
+        "firstUseKO",
+        "lastUseKO",
+        "purchasedOnKO",
+        "purchasedFrom",
+        "cost",
+        "costUnit",
+        "labels"
+    ];
+
+    // Labels for the warning dialogs. Reuses the OctoScale diff table's labels where they
+    // exist instead of maintaining a second copy of the same strings; listed here are only
+    // the fields that table has no reason to carry (a tag stores no labels or note).
+    self._dirtyFieldLabels = {
+        isTemplate: "Template",
+        isActive: "Active",
+        materialCharacteristic: "Material characteristic",
+        rfidTagKey: "RFID tag key",
+        firstUseKO: "First use",
+        lastUseKO: "Last use",
+        purchasedOnKO: "Purchased on",
+        costUnit: "Cost unit",
+        labels: "Labels",
+        noteText: "Note"
+    };
+
+    self._dirtyFieldLabel = function (key) {
+        if (self._dirtyFieldLabels[key] != null) {
+            return self._dirtyFieldLabels[key];
+        }
+        for (var index = 0; index < OCTOSCALE_TAG_DIFF_FIELDS.length; index++) {
+            if (OCTOSCALE_TAG_DIFF_FIELDS[index].key === key) {
+                return OCTOSCALE_TAG_DIFF_FIELDS[index].label;
+            }
+        }
+        return key;
+    };
+
+    // Normalises a value into the string form used for comparison. Same rule as
+    // _describeConflictChanges(): the API hands numbers back as strings while the
+    // observables hold real numbers, so a plain !== would flag every untouched number.
+    // Arrays (labels) are joined, so a re-created but identical array is not a change.
+    self._dirtyValueToText = function (value) {
+        if (value == null) {
+            return "";
+        }
+        if (Array.isArray(value)) {
+            return value
+                .map(function (entry) {
+                    return entry == null ? "" : String(entry);
+                })
+                .join(" ");
+        }
+        return String(value);
+    };
+
+    // Snapshot of everything a save would persist, in comparison form.
+    self._captureFormState = function () {
+        var state = {};
+        if (self.spoolItemForEditing == null) {
+            return state;
+        }
+        self._dirtyRelevantFields.forEach(function (key) {
+            var observable = self.spoolItemForEditing[key];
+            if (typeof observable !== "function") {
+                return;
+            }
+            state[key] = self._dirtyValueToText(ko.unwrap(observable));
+        });
+        // The note editor is not two-way bound: Quill's content only reaches the
+        // observables inside saveSpoolItem(). Reading it straight from the editor is
+        // therefore the only way an edited note shows up as a change at all.
+        if (self.noteEditor != null) {
+            state.noteText = self._dirtyValueToText(self.noteEditor.getText());
+        }
+        return state;
+    };
+
+    // Human readable list of what differs from the snapshot ("Drying time: 8 -> 6").
+    // An empty list means there is nothing to lose.
+    self._getUnsavedChanges = function () {
+        var changes = [];
+        if (self._formSnapshot == null) {
+            return changes;
+        }
+        var currentState = self._captureFormState();
+        Object.keys(currentState).forEach(function (key) {
+            var before = self._formSnapshot[key];
+            var after = currentState[key];
+            if (before === after) {
+                return;
+            }
+            // a field that was not part of the snapshot yet and is still empty is no change
+            if (before == null && after === "") {
+                return;
+            }
+            changes.push(
+                self._dirtyFieldLabel(key) +
+                    ": " +
+                    (self._dirtyValueToText(before) || "-") +
+                    " -> " +
+                    (after || "-")
+            );
+        });
+        return changes;
+    };
+
+    // Called wherever the form has been (re)populated programmatically or saved
+    // successfully: from that point on, further changes belong to the user.
+    // For the template only. Deliberately NOT a ko.computed: _captureFormState() also reads
+    // the Quill note editor, which is not an observable, so a computed could not track it
+    // and would go stale for exactly the field that is hardest to notice. Refreshed where
+    // it is actually looked at - when the NFC panel re-renders its diff.
+    self.hasUnsavedChanges = ko.observable(false);
+    self.refreshUnsavedChangesFlag = function () {
+        self.hasUnsavedChanges(self._getUnsavedChanges().length > 0);
+    };
+
+    self._resetFormSnapshot = function () {
+        self._formSnapshot = self._captureFormState();
+        self.hasUnsavedChanges(false);
+    };
+
+    self._buildUnsavedChangesMessage = function (changes) {
+        var shownChanges = changes.slice(0, 12);
+        if (changes.length > shownChanges.length) {
+            shownChanges.push(
+                "... and " + (changes.length - shownChanges.length) + " more"
+            );
+        }
+        return (
+            "This spool has changes that have not been saved yet:" +
+            SPOOLMANAGER_DIALOGS.buildHtmlList(
+                shownChanges.map(function (change) {
+                    return SPOOLMANAGER_DIALOGS.escapeHtml(change);
+                })
+            )
+        );
+    };
+
+    // Closes the dialog from code. Every internal close path goes through here so the
+    // "unsaved changes" guard on the modal's hide event can tell an intentional close
+    // (save, delete, conflict resolution, select-for-printing) apart from the user
+    // dismissing the dialog via X / Close / Esc. The flag is cleared again by the "hidden"
+    // handler, i.e. once the close has actually happened.
+    self._allowDialogClose = false;
+    self._closeSpoolDialog = function () {
+        self._allowDialogClose = true;
+        self.spoolDialog.modal("hide");
+    };
+
+    // Asks before throwing away unsaved edits. Returns true when the caller may proceed
+    // with closing, false when a dialog was raised instead and the close has to be aborted.
+    self._confirmDiscardUnsavedChanges = function () {
+        if (self._allowDialogClose === true) {
+            // closing on our own terms (save/delete/...) - nothing was lost
+            return true;
+        }
+        var changes = self._getUnsavedChanges();
+        if (changes.length === 0) {
+            return true;
+        }
+        SPOOLMANAGER_DIALOGS.choose({
+            title: "Unsaved changes",
+            message: self._buildUnsavedChangesMessage(changes),
+            question: "Close the dialog and discard these changes?",
+            cancel: "Keep editing",
+            proceed: ["Save and close", "Discard changes"],
+            proceedClass: "primary"
+        }).then(function (buttonIndex) {
+            if (buttonIndex === 0) {
+                // saveSpoolItem() closes the dialog itself on success, and keeps it open
+                // (with an explanation) when validation or the server rejects the save
+                self.saveSpoolItem();
+                return;
+            }
+            if (buttonIndex === 1) {
+                self._closeSpoolDialog();
+            }
+            // null = "Keep editing" / Esc / backdrop: leave the dialog exactly as it is
+        });
+        return false;
+    };
+    // ----------------- end: unsaved-changes detection
+
     // Fields worth naming in the conflict dialog. Weights first: a scale writing back a
     // measurement is the common source of a concurrent change.
     self._conflictRelevantFields = [
@@ -2286,7 +2586,7 @@ function SpoolManagerExtendedEditSpoolDialog() {
                 proceedClass: "primary",
                 onproceed: function () {
                     self.spoolItemForEditing.isSpoolVisible(false);
-                    self.spoolDialog.modal("hide");
+                    self._closeSpoolDialog();
                     self.closeDialogHandler(true);
                 },
                 nofade: true
@@ -2315,8 +2615,10 @@ function SpoolManagerExtendedEditSpoolDialog() {
                     // take the server state into the dialog, dropping the local edits
                     if (currentSpool != null) {
                         self._updateActiveSpoolItem(currentSpool);
+                        // the form now shows the server's state, so that is the new baseline
+                        self._resetFormSnapshot();
                     } else {
-                        self.spoolDialog.modal("hide");
+                        self._closeSpoolDialog();
                         self.closeDialogHandler(true);
                     }
                     return;
@@ -2332,7 +2634,17 @@ function SpoolManagerExtendedEditSpoolDialog() {
         });
     };
 
-    self.saveSpoolItem = function () {
+    // options (all optional):
+    //   keepDialogOpen: true  -> save without closing the dialog. Used by the "save, then
+    //                            write the tag" path, which needs the dialog (and with it
+    //                            the tag writer and its device polling) to stay alive.
+    //   onSaved: function     -> called ONLY after the spool really reached the database.
+    //                            Every early return below (validation, server rejection,
+    //                            unresolved conflict) deliberately leaves it uncalled, so a
+    //                            caller that chains an action onto the save cannot act on a
+    //                            save that never happened.
+    self.saveSpoolItem = function (options) {
+        var saveOptions = options != null ? options : {};
         // Input validation
         var displayName = self.spoolItemForEditing.displayName();
         if (!displayName || displayName.trim().length === 0) {
@@ -2415,8 +2727,20 @@ function SpoolManagerExtendedEditSpoolDialog() {
                     });
                     return;
                 }
+                // saved successfully - the form now matches the database again, so the
+                // unsaved-changes warnings must not fire for the edits just persisted
+                self._resetFormSnapshot();
+                if (saveOptions.keepDialogOpen === true) {
+                    // Caller wants to keep working in the dialog (see the tag-write path).
+                    // The follow-up notifications below all concern the closed-dialog flow
+                    // (they hand control back to closeDialogHandler), so none of them apply.
+                    if (typeof saveOptions.onSaved === "function") {
+                        saveOptions.onSaved();
+                    }
+                    return;
+                }
                 self.spoolItemForEditing.isSpoolVisible(false);
-                self.spoolDialog.modal("hide");
+                self._closeSpoolDialog();
                 if (
                     self.spoolItemForEditing.selectedForTool() != undefined &&
                     self.printerStateViewModel.isPrinting()
@@ -2442,6 +2766,9 @@ function SpoolManagerExtendedEditSpoolDialog() {
                 } else {
                     // some other spool was updated - not relevant
                     self.closeDialogHandler(true);
+                }
+                if (typeof saveOptions.onSaved === "function") {
+                    saveOptions.onSaved();
                 }
             }
         );
@@ -2474,7 +2801,7 @@ function SpoolManagerExtendedEditSpoolDialog() {
                 self.spoolItemForEditing.databaseId(),
                 function (responseData) {
                     self.spoolItemForEditing.isSpoolVisible(false);
-                    self.spoolDialog.modal("hide");
+                    self._closeSpoolDialog();
                     self.closeDialogHandler(true);
                 }
             );
@@ -2490,7 +2817,7 @@ function SpoolManagerExtendedEditSpoolDialog() {
                 ? params.toolIdx
                 : self.spoolItemForEditing.selectedForTool();
         self.spoolItemForEditing.isSpoolVisible(false);
-        self.spoolDialog.modal("hide");
+        self._closeSpoolDialog();
         self.closeDialogHandler(
             false,
             "selectSpoolForPrinting",
