@@ -3,8 +3,8 @@
 # Tests for reading filament usage out of a plain gcode file's slicer comments.
 #
 # A file sent straight to a Bambu printer's storage arrives as plain `.gcode`: no local
-# copy, no analysis metadata, and no 3mf container - observed on the A1mini with
-# `printer:OctoScaleLEDCoverV1_PLA_8m6s.gcode`, which produced
+# copy, no analysis metadata, and no 3mf container - observed on a Bambu instance with a
+# `printer:<name>.gcode` job, which produced
 # "calculating filament aborted because filament analysis metadata was missing" even
 # though the file itself carries `; filament used [mm] = 42.31` in its footer.
 #
@@ -24,8 +24,8 @@ import zipfile
 
 from octoprint_SpoolManagerExtended import SpoolmanagerPlugin
 
-# real footer of the A1mini job, trimmed to the lines in play
-A1MINI_SINGLE_TOOL_FOOTER = """
+# real footer of such a job, trimmed to the lines in play
+SINGLE_TOOL_FOOTER = """
 ; EXECUTABLE_BLOCK_END
 
 ; filament used [mm] = 42.31
@@ -93,14 +93,14 @@ class TestPlainGcodeFilamentMetaData(unittest.TestCase):
     ############################################################### single tool
 
     def test_scalarUsageIsReadAsTool0(self):
-        filament = self._parse(A1MINI_SINGLE_TOOL_FOOTER)
+        filament = self._parse(SINGLE_TOOL_FOOTER)
 
         self.assertIsNotNone(filament)
         self.assertEqual(["tool0"], list(filament.keys()))
         self.assertAlmostEqual(42.31, filament["tool0"]["length"], places=2)
 
     def test_volumeIsConvertedFromCm3ToMm3(self):
-        filament = self._parse(A1MINI_SINGLE_TOOL_FOOTER)
+        filament = self._parse(SINGLE_TOOL_FOOTER)
 
         # metadata format expects mm3, the gcode comment reports cm3
         self.assertAlmostEqual(100.0, filament["tool0"]["volume"], places=2)
@@ -166,7 +166,7 @@ class TestPlainGcodeFilamentMetaData(unittest.TestCase):
         handle, path = tempfile.mkstemp(suffix=".gcode")
         try:
             with os.fdopen(handle, "w") as gcodeFile:
-                gcodeFile.write(A1MINI_SINGLE_TOOL_FOOTER)
+                gcodeFile.write(SINGLE_TOOL_FOOTER)
 
             filament = self.plugin._parseFilamentLengthsFromGcodeComments(path)
 
@@ -178,7 +178,7 @@ class TestPlainGcodeFilamentMetaData(unittest.TestCase):
         # printer-storage gcode runs to megabytes; the summary sits in the footer, so
         # the parser must not depend on reading the whole file
         padding = "G1 X10 Y10 E0.5\n" * 20000
-        filament = self._parse(padding + A1MINI_SINGLE_TOOL_FOOTER)
+        filament = self._parse(padding + SINGLE_TOOL_FOOTER)
 
         self.assertAlmostEqual(42.31, filament["tool0"]["length"], places=2)
 
@@ -186,7 +186,7 @@ class TestPlainGcodeFilamentMetaData(unittest.TestCase):
         # guards the tail optimisation itself: with a deliberately tiny window the
         # footer is out of reach, proving the window is what bounds the read
         padding = "G1 X10 Y10 E0.5\n" * 1000
-        filament = self._parse(A1MINI_SINGLE_TOOL_FOOTER + padding, tailBytes=64)
+        filament = self._parse(SINGLE_TOOL_FOOTER + padding, tailBytes=64)
 
         self.assertIsNone(filament)
 
@@ -204,14 +204,14 @@ class TestPrinterFilePathResolution(unittest.TestCase):
     The bambu connector reports a job path built from the printer's subtask_name with
     ".gcode.3mf" appended (connector.py _update_job_from_state()). For a job sent as
     plain gcode that names a file which is not on the SD card: the printer holds
-    "OctoScaleLEDCoverV1_PLA_8m6s.gcode", the job says "...gcode.3mf", and the download
-    fails. Observed on the A1mini on 2026-09-09.
+    "bracket_PLA_8m6s.gcode", the job says "...gcode.3mf", and the download
+    fails. Observed on a Bambu instance.
     """
 
-    A1MINI_STORAGE = [
-        "Ghostship_Benchy_PLA_1h25m.gcode.3mf",
-        "OctoScaleLEDCoverV1_PLA_8m6s.gcode",
-        "rocket_PLA_16m17s.gcode.3mf",
+    PRINTER_STORAGE = [
+        "cube_PLA_1h25m.gcode.3mf",
+        "bracket_PLA_8m6s.gcode",
+        "cone_PLA_16m17s.gcode.3mf",
     ]
 
     def setUp(self):
@@ -219,23 +219,23 @@ class TestPrinterFilePathResolution(unittest.TestCase):
 
     def test_reportedPathIsCorrectedToTheFileOnStorage(self):
         resolved = self.plugin._resolvePrinterFilePath(
-            FakeConnection(self.A1MINI_STORAGE),
-            "OctoScaleLEDCoverV1_PLA_8m6s.gcode.3mf",
+            FakeConnection(self.PRINTER_STORAGE),
+            "bracket_PLA_8m6s.gcode.3mf",
         )
 
-        self.assertEqual("OctoScaleLEDCoverV1_PLA_8m6s.gcode", resolved)
+        self.assertEqual("bracket_PLA_8m6s.gcode", resolved)
 
     def test_existingPathIsLeftAlone(self):
         # a real 3mf container must not be rewritten to a .gcode that does not exist
         resolved = self.plugin._resolvePrinterFilePath(
-            FakeConnection(self.A1MINI_STORAGE), "Ghostship_Benchy_PLA_1h25m.gcode.3mf"
+            FakeConnection(self.PRINTER_STORAGE), "cube_PLA_1h25m.gcode.3mf"
         )
 
-        self.assertEqual("Ghostship_Benchy_PLA_1h25m.gcode.3mf", resolved)
+        self.assertEqual("cube_PLA_1h25m.gcode.3mf", resolved)
 
     def test_unknownPathIsLeftAloneWhenNoAlternativeExists(self):
         resolved = self.plugin._resolvePrinterFilePath(
-            FakeConnection(self.A1MINI_STORAGE), "SomethingElse.gcode.3mf"
+            FakeConnection(self.PRINTER_STORAGE), "SomethingElse.gcode.3mf"
         )
 
         self.assertEqual("SomethingElse.gcode.3mf", resolved)
@@ -251,27 +251,27 @@ class TestPrinterFilePathResolution(unittest.TestCase):
     def test_unreachablePrinterLeavesPathUnchanged(self):
         # no listing is no reason to rewrite anything - let the download decide
         resolved = self.plugin._resolvePrinterFilePath(
-            FakeConnection([], raises=True), "OctoScaleLEDCoverV1_PLA_8m6s.gcode.3mf"
+            FakeConnection([], raises=True), "bracket_PLA_8m6s.gcode.3mf"
         )
 
-        self.assertEqual("OctoScaleLEDCoverV1_PLA_8m6s.gcode.3mf", resolved)
+        self.assertEqual("bracket_PLA_8m6s.gcode.3mf", resolved)
 
     def test_emptyListingLeavesPathUnchanged(self):
         resolved = self.plugin._resolvePrinterFilePath(
-            FakeConnection([]), "OctoScaleLEDCoverV1_PLA_8m6s.gcode.3mf"
+            FakeConnection([]), "bracket_PLA_8m6s.gcode.3mf"
         )
 
-        self.assertEqual("OctoScaleLEDCoverV1_PLA_8m6s.gcode.3mf", resolved)
+        self.assertEqual("bracket_PLA_8m6s.gcode.3mf", resolved)
 
 
 class TestUnslicedProjectFileDetection(unittest.TestCase):
     """
     Bambu Studio / Orca leave the project file next to the sliced job on printer storage
-    ("OctoScaleLEDCoverV1.3mf" beside "OctoScaleLEDCoverV1.gcode.3mf"). Both carry a
+    ("bracket.3mf" beside "bracket.gcode.3mf"). Both carry a
     Metadata/slice_info.config, but the project file's holds only a <header> - no <plate>,
     so no filament figures. Selecting it produced "missing metadata - wait for the
     uploaded file to be processed", which is wrong: there is nothing to wait for.
-    Observed on the A1mini on 2026-09-09; the XML below is what those two files hold.
+    Observed on a Bambu instance; the XML below is what those two files hold.
     """
 
     PROJECT_SLICE_INFO = """<?xml version="1.0" encoding="UTF-8"?>
@@ -331,36 +331,36 @@ class TestUnslicedProjectFileDetection(unittest.TestCase):
 
     ############################################################### companion lookup
 
-    A1MINI_STORAGE = [
-        "OctoScaleLEDCoverV1.3mf",
-        "OctoScaleLEDCoverV1.gcode.3mf",
-        "Ghostship_Benchy_PLA_1h25m.gcode.3mf",
+    PRINTER_STORAGE = [
+        "bracket.3mf",
+        "bracket.gcode.3mf",
+        "cube_PLA_1h25m.gcode.3mf",
     ]
 
     def test_slicedSiblingIsFound(self):
         companion = self.plugin._findSlicedCompanionFile(
-            FakeConnection(self.A1MINI_STORAGE), "OctoScaleLEDCoverV1.3mf"
+            FakeConnection(self.PRINTER_STORAGE), "bracket.3mf"
         )
 
-        self.assertEqual("OctoScaleLEDCoverV1.gcode.3mf", companion)
+        self.assertEqual("bracket.gcode.3mf", companion)
 
     def test_noSiblingWhenOnlyTheProjectFileIsOnStorage(self):
         companion = self.plugin._findSlicedCompanionFile(
-            FakeConnection(["OctoScaleLEDCoverV1.3mf"]), "OctoScaleLEDCoverV1.3mf"
+            FakeConnection(["bracket.3mf"]), "bracket.3mf"
         )
 
         self.assertIsNone(companion)
 
     def test_slicedFileIsNotItsOwnSibling(self):
         companion = self.plugin._findSlicedCompanionFile(
-            FakeConnection(self.A1MINI_STORAGE), "OctoScaleLEDCoverV1.gcode.3mf"
+            FakeConnection(self.PRINTER_STORAGE), "bracket.gcode.3mf"
         )
 
         self.assertIsNone(companion)
 
     def test_plainGcodeHasNoSibling(self):
         companion = self.plugin._findSlicedCompanionFile(
-            FakeConnection(self.A1MINI_STORAGE), "OctoScaleLEDCoverV1_PLA_8m6s.gcode"
+            FakeConnection(self.PRINTER_STORAGE), "bracket_PLA_8m6s.gcode"
         )
 
         self.assertIsNone(companion)
@@ -368,16 +368,16 @@ class TestUnslicedProjectFileDetection(unittest.TestCase):
     def test_deletedSiblingIsNoLongerNamed(self):
         # the sibling is looked up fresh on every call rather than remembered with the
         # file: naming a sliced file the user has since deleted sends them after nothing
-        connection = FakeConnection(self.A1MINI_STORAGE)
+        connection = FakeConnection(self.PRINTER_STORAGE)
         self.assertEqual(
-            "OctoScaleLEDCoverV1.gcode.3mf",
-            self.plugin._findSlicedCompanionFile(connection, "OctoScaleLEDCoverV1.3mf"),
+            "bracket.gcode.3mf",
+            self.plugin._findSlicedCompanionFile(connection, "bracket.3mf"),
         )
 
-        connection._paths = ["OctoScaleLEDCoverV1.3mf"]
+        connection._paths = ["bracket.3mf"]
 
         self.assertIsNone(
-            self.plugin._findSlicedCompanionFile(connection, "OctoScaleLEDCoverV1.3mf")
+            self.plugin._findSlicedCompanionFile(connection, "bracket.3mf")
         )
 
 

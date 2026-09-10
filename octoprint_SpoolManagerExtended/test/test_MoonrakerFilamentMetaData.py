@@ -98,7 +98,7 @@ class FakePlugin(object):
         self._moonrakerFilamentCache = {}
 
 
-MOONRAKER_PARAMS = {"host": "192.168.1.120", "port": 7125, "apikey": None}
+MOONRAKER_PARAMS = {"host": "192.0.2.10", "port": 7125, "apikey": None}
 
 
 class TestMoonrakerFilamentMetaData(unittest.TestCase):

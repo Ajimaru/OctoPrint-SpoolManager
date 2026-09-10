@@ -296,11 +296,18 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
         spoolModel.dryingTemperature = self._toIntFromJSONOrNone(
             "dryingTemperature", jsonData, validationErrors, minValue=0
         )
+        # Capped at 720 h (30 days), deliberately far above any real drying cycle (hours,
+        # at most a day or two). The cap is not about sane user input, it is a guard against
+        # a known bad data source: TigerTags written before the firmware's factor-60 fix
+        # carry MINUTES in the hours byte, so a 3 h spool reads back as 180 - and 255 there
+        # is indistinguishable from a genuine 255. Anything past 720 cannot be a real
+        # drying time and is far more likely to be that bug.
         spoolModel.dryingTime = self._toIntFromJSONOrNone(
-            "dryingTime", jsonData, validationErrors, minValue=0
+            "dryingTime", jsonData, validationErrors, minValue=0, maxValue=720
         )
+        # TD is a dimensionless opacity number with a defined range of 0.1-100.
         spoolModel.td = self._toFloatFromJSONOrNone(
-            "td", jsonData, validationErrors, minValue=0
+            "td", jsonData, validationErrors, minValue=0, maxValue=100
         )
         spoolModel.offsetTemperature = self._toIntFromJSONOrNone(
             "offsetTemperature", jsonData, validationErrors
@@ -452,7 +459,9 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
             )
         return value
 
-    def _toFloatFromJSONOrNone(self, key, json, validationErrors=None, minValue=None):
+    def _toFloatFromJSONOrNone(
+        self, key, json, validationErrors=None, minValue=None, maxValue=None
+    ):
         value = self._getValueFromJSONOrNone(key, json)
         if value is not None:
             if StringUtils.isNotEmpty(value):
@@ -484,11 +493,23 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
                             + " must not be less than "
                             + str(minValue)
                         )
+                    if (
+                        maxValue is not None
+                        and value > maxValue
+                        and validationErrors is not None
+                    ):
+                        validationErrors.append(
+                            self._fieldLabel(key)
+                            + " must not be greater than "
+                            + str(maxValue)
+                        )
             else:
                 value = None
         return value
 
-    def _toIntFromJSONOrNone(self, key, json, validationErrors=None, minValue=None):
+    def _toIntFromJSONOrNone(
+        self, key, json, validationErrors=None, minValue=None, maxValue=None
+    ):
         value = self._getValueFromJSONOrNone(key, json)
         if value is not None:
             if StringUtils.isNotEmpty(value):
@@ -519,6 +540,16 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
                             self._fieldLabel(key)
                             + " must not be less than "
                             + str(minValue)
+                        )
+                    if (
+                        maxValue is not None
+                        and value > maxValue
+                        and validationErrors is not None
+                    ):
+                        validationErrors.append(
+                            self._fieldLabel(key)
+                            + " must not be greater than "
+                            + str(maxValue)
                         )
             else:
                 value = None

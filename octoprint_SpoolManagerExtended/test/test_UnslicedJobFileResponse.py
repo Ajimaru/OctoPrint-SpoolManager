@@ -4,7 +4,7 @@
 # project file.
 #
 # Bambu Studio / Orca leave the project file next to the sliced job on printer storage
-# ("OctoScaleLEDCoverV1.3mf", 28KB, beside "OctoScaleLEDCoverV1.gcode.3mf", 44KB). The
+# ("bracket.3mf", 28KB, beside "bracket.gcode.3mf", 44KB). The
 # project file's Metadata/slice_info.config holds only a <header> - no <plate>, so no
 # filament figures. Selecting it produced "missing metadata - wait for the uploaded file
 # to be processed", which is wrong: there is nothing to wait for.
@@ -13,7 +13,7 @@
 # test_PlainGcodeFilamentMetaData.py covers): allowed_to_print() assembles its own
 # response dict and does not go through _evaluateRequiredWeight(), so a flag set during
 # metadata reading only reaches the dialog if this endpoint forwards it. It did not, and
-# the parser-level tests all passed regardless - observed on the A1mini on 2026-09-09.
+# the parser-level tests all passed regardless - observed on a Bambu instance.
 #
 # Run with:  .venv/bin/python -m pytest octoprint_SpoolManagerExtended/test/test_UnslicedJobFileResponse.py -v
 
@@ -27,8 +27,8 @@ from octoprint_SpoolManagerExtended.api.SpoolManagerAPI import SpoolManagerAPI
 from octoprint_SpoolManagerExtended.common.SettingsKeys import SettingsKeys
 from octoprint_SpoolManagerExtended.DatabaseManager import MODELS, DatabaseManager
 
-PROJECT_FILE = "OctoScaleLEDCoverV1.3mf"
-SLICED_FILE = "OctoScaleLEDCoverV1.gcode.3mf"
+PROJECT_FILE = "bracket.3mf"
+SLICED_FILE = "bracket.gcode.3mf"
 
 
 class FakeSettings(object):

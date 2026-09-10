@@ -2334,7 +2334,16 @@ class SpoolmanagerPlugin(
         settings[SettingsKeys.SETTINGS_KEY_OCTOSCALE_ENABLED] = False
         settings[SettingsKeys.SETTINGS_KEY_OCTOSCALE_URL] = ""
         settings[SettingsKeys.SETTINGS_KEY_OCTOSCALE_NFCV_FORMAT] = "extended"
-        settings[SettingsKeys.SETTINGS_KEY_OCTOSCALE_NTAG_FORMAT] = "openSpool"
+        # Extended by default here too, matching NFC-V above: it is the only format that
+        # carries every field (drying values, TD, multi-color, transparent/rainbow), so the
+        # tag round-trips a spool without silently dropping data.
+        # Two consequences worth knowing:
+        #  - This only affects FRESH installs. An existing instance keeps whatever it has
+        #    stored; a default never rewrites a saved setting.
+        #  - NTAG213 cannot do Extended - the firmware rejects such a write outright rather
+        #    than falling back (see TagFormats.py's TAG_FORMAT_NTAG_EXTENDED). Anyone using
+        #    NTAG213 has to switch this to OpenSpool by hand.
+        settings[SettingsKeys.SETTINGS_KEY_OCTOSCALE_NTAG_FORMAT] = "extended"
         settings[SettingsKeys.SETTINGS_KEY_OCTOSCALE_TAG_READING_ENABLED] = False
         settings[SettingsKeys.SETTINGS_KEY_OCTOSCALE_VENDOR_TAG_WRITE_ENABLED] = False
         # Empty on purpose: no manufacturer key material ships with this plugin, and the
