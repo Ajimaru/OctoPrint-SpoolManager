@@ -883,6 +883,13 @@ Example: {material}-{color}-{id} becomes PETG-Silver-42."><i class="fas fa-info-
                                                     <span data-bind="text: spoolDialog.octoScaleTagWriter.tigerTagResolutionWarning"></span>
                                                 </small>
                                             </span>
+                                            <!-- The diff table below compares the tag against the values currently in the
+                                                 form, but a write always sends the *stored* spool. Say so while the two differ,
+                                                 instead of letting the "In database" column quietly show unsaved edits. -->
+                                            <span class="help-block" style="margin-bottom: 0;"
+                                                  data-bind="visible: spoolDialog.hasUnsavedChanges">
+                                                <small class="text-warning"><i class="fas fa-exclamation-triangle"></i> This spool has unsaved changes. They are saved first when you write the tag.</small>
+                                            </span>
                                             <!-- ko if: spoolDialog.isExistingSpool() && spoolDialog.octoScaleTagWriter.tagPresent() && spoolDialog.octoScaleTagWriter.isOwnSpoolTag() -->
                                             <span class="help-block" style="margin-bottom: 0;"
                                                   data-bind="visible: spoolDialog.octoScaleTagWriter.tagValueDiff().length > 0">
