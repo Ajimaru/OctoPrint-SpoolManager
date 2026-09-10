@@ -146,7 +146,23 @@ var OCTOSCALE_TAG_DIFF_FIELDS = [
     // Hex colours are the same colour whatever the case: the firmware echoes "#FD7412"
     // where the spool holds "#fd7412", which would otherwise show up as a change on every
     // single write of an unmodified spool.
-    {key: "color", label: "Color", caseInsensitive: true},
+    //
+    // /nfcprobe splits color into a hex list ("color") and a composed grammar string
+    // ("colorFull", a firmware field not otherwise used in this plugin) - for
+    // transparent/rainbow spools the hex list is empty, so reading "color" directly
+    // reported a correctly-written tag as "(not set)" even though the tag was fine.
+    // colorFull carries the same composed value the read-tag path (/octoscale/readTag)
+    // already produces via _octoscaleComposeColorString() server-side, so this makes
+    // tagValueDiff agree with it. Falls back to "color" for firmware that predates
+    // colorFull.
+    {
+        key: "color",
+        label: "Color",
+        caseInsensitive: true,
+        readTagValue: function (tagValues) {
+            return tagValues.colorFull != null ? tagValues.colorFull : tagValues.color;
+        }
+    },
     {key: "colorName", label: "Color name"},
     {key: "diameter", label: "Diameter", unit: "mm"},
     {key: "diameterTolerance", label: "Diameter tolerance", unit: "mm"},
@@ -584,13 +600,16 @@ function SpoolManagerOctoScaleTagWriter(apiClient, pluginSettings) {
         var diffs = [];
 
         OCTOSCALE_TAG_DIFF_FIELDS.forEach(function (field) {
-            if (!Object.prototype.hasOwnProperty.call(tagValues, field.key)) {
+            // Most fields read straight off the raw /nfcprobe payload by key; a field can
+            // override this (see the "color" entry above) when the raw key alone does not
+            // carry the value a write actually produced.
+            var rawTagValue = field.readTagValue
+                ? field.readTagValue(tagValues)
+                : tagValues[field.key];
+            if (rawTagValue === undefined) {
                 return;
             }
-            var tagValue = octoScaleNormalizeTagValue(
-                tagValues[field.key],
-                field.tagValueDivisor
-            );
+            var tagValue = octoScaleNormalizeTagValue(rawTagValue, field.tagValueDivisor);
             var currentValue =
                 typeof spoolItem[field.key] === "function"
                     ? spoolItem[field.key]()
