@@ -4159,7 +4159,16 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
         # data for the sidebar
         self.checkRemainingFilament()
 
-        return flask.jsonify()
+        # DatabaseManager.saveSpool() bumps spoolModel.version on every successful save
+        # (optimistic locking) but used to answer with an empty body - the dialog kept the
+        # version it had sent, so a second save right after a first one (e.g. the NFC "write
+        # tag" flow, which saves once before writing and once more for the rest of the form)
+        # always lost the race against the version it had just caused itself, producing a
+        # 409 "modified elsewhere" for no external change at all. Returning the saved spool
+        # lets the client adopt the new version instead of only learning about it on conflict.
+        return flask.jsonify(
+            {"spool": Transformer.transformSpoolModelToDict(spoolModel)}
+        )
 
     #####################################################################################################   DELETE SPOOL
     @octoprint.plugin.BlueprintPlugin.route(

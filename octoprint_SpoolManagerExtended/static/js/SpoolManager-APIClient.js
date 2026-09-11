@@ -407,7 +407,10 @@ function SpoolManagerExtendedAPIClient(pluginId, baseUrl) {
             _buildPluginUrl("saveSpool"),
             {method: "PUT", body: jsonPayload},
             function (data) {
-                responseHandler(true);
+                // data.spool carries the version saveSpool() just bumped server-side - the
+                // caller adopts it so a second save right after this one is not compared
+                // against the stale version the form was still holding
+                responseHandler(true, null, null, data ? data.spool : null);
             },
             function (body, rawText, response) {
                 // server rejected the save (e.g. HTTP 400 with validation errors) - surface it instead of swallowing it
