@@ -2564,13 +2564,20 @@ function SpoolManagerExtendedEditSpoolDialog() {
     // Fields worth naming in the conflict dialog. Weights first: a scale writing back a
     // measurement is the common source of a concurrent change.
     self._conflictRelevantFields = [
-        {key: "remainingWeight", label: "Remaining weight"},
-        {key: "usedWeight", label: "Used weight"},
-        {key: "totalWeight", label: "Total weight"},
-        {key: "spoolWeight", label: "Empty spool weight"},
+        {key: "remainingWeight", label: "Remaining weight", numeric: true},
+        {key: "usedWeight", label: "Used weight", numeric: true},
+        {key: "totalWeight", label: "Total weight", numeric: true},
+        {key: "spoolWeight", label: "Empty spool weight", numeric: true},
         {key: "displayName", label: "Display name"},
         {key: "colorName", label: "Color"},
-        {key: "material", label: "Material"}
+        {key: "material", label: "Material"},
+        // The RFID teach-in (rfidTagKey POST handler) saves the spool server-side as soon
+        // as a new tag UID is read - a write that can happen while this dialog is still
+        // open (e.g. "write tag" reads the tag back for verification), bumping the version
+        // without the form knowing. That is exactly the case that produced a conflict
+        // dialog with no visible reason: the version had moved, but the only field that
+        // actually changed (rfidTagKey) was not in this list, so the diff came up empty.
+        {key: "rfidTagKey", label: "RFID tag key"}
     ];
 
     // Compares what the dialog holds against the server's current state and returns a
@@ -2587,11 +2594,30 @@ function SpoolManagerExtendedEditSpoolDialog() {
             }
             var myValue = mine();
             var serverValue = currentSpool[field.key];
-            // both sides are compared as strings: the API returns numbers formatted as
-            // strings, while the observables may hold real numbers
+            // numeric fields are compared as numbers: the API returns weights formatted as
+            // strings (e.g. "1000.0"), while the observables hold real numbers (1000) - a
+            // plain string comparison would flag that formatting difference as a conflict
             var myText = myValue == null ? "" : String(myValue);
             var serverText = serverValue == null ? "" : String(serverValue);
-            if (myText !== serverText && (myText.length > 0 || serverText.length > 0)) {
+            var isDifferent;
+            if (field.numeric) {
+                var myNumber =
+                    myValue == null || myValue === "" ? null : parseFloat(myValue);
+                var serverNumber =
+                    serverValue == null || serverValue === ""
+                        ? null
+                        : parseFloat(serverValue);
+                // NaN !== NaN, but neither side should legitimately be NaN here (parseFloat
+                // only runs on non-null/non-empty input) - falls back to a text diff instead
+                // of silently treating "invalid number" as "equal"
+                isDifferent =
+                    isNaN(myNumber) || isNaN(serverNumber)
+                        ? myText !== serverText
+                        : myNumber !== serverNumber;
+            } else {
+                isDifferent = myText !== serverText;
+            }
+            if (isDifferent && (myText.length > 0 || serverText.length > 0)) {
                 changes.push(
                     field.label +
                         ": " +
@@ -2736,7 +2762,7 @@ function SpoolManagerExtendedEditSpoolDialog() {
 
         self.apiClient.callSaveSpool(
             self.spoolItemForEditing,
-            function (success, validationErrors, conflict) {
+            function (success, validationErrors, conflict, savedSpool) {
                 if (conflict != null) {
                     // someone else changed this spool while the dialog was open (e.g. a scale
                     // writing a measured weight via the API). The save did NOT happen - explain
@@ -2761,6 +2787,14 @@ function SpoolManagerExtendedEditSpoolDialog() {
                         type: "error"
                     });
                     return;
+                }
+                // the server bumps the optimistic-lock version on every successful save -
+                // adopt it now, otherwise a second save right after this one (e.g. the NFC
+                // "write tag" flow, which saves once before writing and once more for the
+                // rest of the form) always conflicts against the version this very save just
+                // made stale, reporting "modified elsewhere" for no external change at all
+                if (savedSpool != null && savedSpool.version != null) {
+                    self.spoolItemForEditing.version(savedSpool.version);
                 }
                 // saved successfully - the form now matches the database again, so the
                 // unsaved-changes warnings must not fire for the edits just persisted
