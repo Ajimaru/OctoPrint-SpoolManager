@@ -15,7 +15,7 @@ plugin_name = "OctoPrint-SpoolManagerExtended"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
 #
-plugin_version = "1.8.0a3.dev332"
+plugin_version = "1.8.0a3.dev335"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module
@@ -35,9 +35,9 @@ plugin_license = "AGPLv3"
 
 # Any additional requirements besides OctoPrint should be listed here
 plugin_requires = [
-    # OctoPrint 1.x is not supported; octoprint_setuptools would otherwise inject an
-    # unbounded OctoPrint requirement. ">=2.0.0" already admits 2.0.0 release candidates.
-    "OctoPrint>=2.0.0",
+    # OctoPrint 1.x is not supported. The current OctoPrint 2.0 releases are release
+    # candidates, which pip only considers when the requirement explicitly admits one.
+    "OctoPrint>=2.0.0rc1",
     "pillow",
     "qrcode",
     "reportlab",  # inventory report PDF export (issue #209)

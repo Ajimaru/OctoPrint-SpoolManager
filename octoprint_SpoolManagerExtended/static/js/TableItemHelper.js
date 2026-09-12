@@ -221,7 +221,8 @@ function SpoolManagerExtendedTableItemHelper(
             catalogs = {materials: [], vendors: [], colors: []};
         }
         self.allCatalogs = catalogs;
-        var materialsCatalog = self.allCatalogs["materials"] || [];
+        var materialsCatalog =
+            self.allCatalogs["filterMaterials"] || self.allCatalogs["materials"] || [];
         var vendorsCatalog = self.allCatalogs["vendors"] || [];
         var colorsCatalog = self.allCatalogs["colors"] || [];
 

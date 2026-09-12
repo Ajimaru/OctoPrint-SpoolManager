@@ -3889,10 +3889,12 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
         labels = list(self._databaseManager.loadCatalogLabels(tableQuery))
         colors = list(self._databaseManager.loadCatalogColors())
 
+        filterMaterials = list(materials)
         materials = self._addAdditionalMaterials(materials)
 
         # sort catalogs alphabetically (case-insensitive) for the filter/edit dropdowns, see issue #23
         vendors = sorted(vendors, key=lambda item: item.lower())
+        filterMaterials = sorted(filterMaterials, key=lambda item: item.lower())
         materials = sorted(materials, key=lambda item: item.lower())
         labels = sorted(labels, key=lambda item: item.lower())
         colors = sorted(colors, key=lambda item: item["colorName"].lower())
@@ -3909,6 +3911,7 @@ class SpoolManagerAPI(octoprint.plugin.BlueprintPlugin):
 
         catalogs = {
             "vendors": vendors,
+            "filterMaterials": filterMaterials,
             "materials": materials,
             "colors": colors,
             "labels": labels,
