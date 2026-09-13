@@ -162,6 +162,15 @@ SPOOLMANAGER_UTILS = {
         return composed;
     },
 
+    // Capitalizes the first letter of each word. Used to make tinycolor's lowercase CSS color
+    // names (e.g. "cornflowerblue") match the Title Case names SpoolmanDB delivers, so the same
+    // color doesn't show up twice (once per casing) in the color filter's distinct list.
+    titleCaseColorName: function (name) {
+        return (name || "").replace(/\S+/g, function (word) {
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        });
+    },
+
     // Derives the color name to suggest for a stored color value. Returns null when there is no
     // sensible suggestion, in which case callers must leave the existing name alone.
     //
@@ -185,6 +194,7 @@ SPOOLMANAGER_UTILS = {
 
         var baseName = tinycolor(colorParts.colors[0]).toName();
         if (baseName != false) {
+            baseName = SPOOLMANAGER_UTILS.titleCaseColorName(baseName);
             return transparentPrefix ? transparentPrefix + " " + baseName : baseName;
         }
         // a hex value without a known name still tells us it is transparent

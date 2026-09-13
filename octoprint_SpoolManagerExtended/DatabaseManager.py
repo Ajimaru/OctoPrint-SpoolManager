@@ -32,7 +32,7 @@ from octoprint_SpoolManagerExtended.WrappedLoggingHandler import WrappedLoggingH
 
 FORCE_CREATE_TABLES = False
 
-CURRENT_DATABASE_SCHEME_VERSION = 12
+CURRENT_DATABASE_SCHEME_VERSION = 13
 
 # Filename of the local SQLite database inside the plugin's data folder. Fixed, not
 # derived from the plugin identifier - the legacy migration relies on that.
@@ -224,6 +224,7 @@ class DatabaseManager(object):
             self._upgradeFrom9To10,
             self._upgradeFrom10To11,
             self._upgradeFrom11To12,
+            self._upgradeFrom12To13,
         ]
 
         for migrationMethodIndex in range(
@@ -239,6 +240,54 @@ class DatabaseManager(object):
             migrationFunctions[migrationMethodIndex]()
             pass
         pass
+
+    def _upgradeFrom12To13(self):
+        self._logger.info(" Starting 12 -> 13")
+        # What is changed:
+        # - colorName values normalized to Title Case
+        # Before this version, colors picked via the built-in color picker used tinycolor's
+        # lowercase CSS names (e.g. "red"), while colors picked from SpoolmanDB kept
+        # SpoolmanDB's Title Case names (e.g. "Galaxy Purple"). The mixed casing made the
+        # color filter show the same color twice. Same shape as the 6 -> 7 migration:
+        # iterate all spools and rewrite the field in place.
+        with self._database.atomic() as transaction:  # Opens new transaction.
+            try:
+                allSpoolModels = self.loadAllSpoolsByQuery(None)
+                if allSpoolModels is not None:
+                    for spoolModel in allSpoolModels:
+                        colorName = spoolModel.colorName
+                        if colorName:
+                            titleCased = re.sub(
+                                r"\S+",
+                                lambda match: match.group(0)[0].upper()
+                                + match.group(0)[1:],
+                                colorName,
+                            )
+                            if titleCased != colorName:
+                                spoolModel.colorName = titleCased
+                                spoolModel.save()
+
+                localSchemeVersionFromDatabaseModel = PluginMetaDataModel.get(
+                    PluginMetaDataModel.key
+                    == PluginMetaDataModel.KEY_DATABASE_SCHEME_VERSION
+                )
+                localSchemeVersionFromDatabaseModel.value = "13"
+                localSchemeVersionFromDatabaseModel.save()
+
+                # do explicit commit
+                transaction.commit()
+            except Exception:
+                # Because this block of code is wrapped with "atomic", a
+                # new transaction will begin automatically after the call
+                # to rollback().
+                transaction.rollback()
+                self._logger.exception(
+                    "Could not normalize colorName during scheme update from 12 To 13:"
+                )
+
+                return
+            pass
+        self._logger.info(" Successfully 12 -> 13")
 
     def _upgradeFrom11To12(self):
         self._logger.info(" Starting 11 -> 12")
